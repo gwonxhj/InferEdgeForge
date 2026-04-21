@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inferedgeforge"
+version = "0.1.0"
+description = "CLI-first preset and artifact production foundation for edge inference targets."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [
+  { name = "InferEdgeForge Contributors" }
+]
+dependencies = []
+
+[project.scripts]
+inferedgeforge = "inferedgeforge.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

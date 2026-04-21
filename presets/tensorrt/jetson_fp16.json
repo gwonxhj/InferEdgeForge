@@ -1,0 +1,15 @@
+{
+  "name": "tensorrt/jetson_fp16",
+  "backend": "tensorrt",
+  "target": "jetson",
+  "source_format": "onnx",
+  "artifact_format": "engine",
+  "build_options": {
+    "precision": "fp16",
+    "workspace_mb": 2048
+  },
+  "metadata": {
+    "validation_handoff": "inferedgelab",
+    "notes": "Example TensorRT preset for preset loading and schema validation."
+  }
+}

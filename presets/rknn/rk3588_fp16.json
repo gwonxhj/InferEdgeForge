@@ -1,0 +1,16 @@
+{
+  "name": "rknn/rk3588_fp16",
+  "backend": "rknn",
+  "target": "rk3588",
+  "source_format": "onnx",
+  "artifact_format": "rknn",
+  "build_options": {
+    "optimization_level": 2,
+    "quantization": false,
+    "precision": "fp16"
+  },
+  "metadata": {
+    "validation_handoff": "inferedgelab",
+    "notes": "Example RKNN preset for preset loading and schema validation."
+  }
+}
