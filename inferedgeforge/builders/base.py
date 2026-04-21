@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from inferedgeforge.schemas import PresetDefinition
+from inferedgeforge.schemas import BuildMetadata, PresetDefinition
 
 
 @dataclass(slots=True)
@@ -20,6 +20,7 @@ class BuildResult:
     target: str
     artifact_paths: list[str]
     metadata_path: str | None = None
+    metadata: BuildMetadata | None = None
 
 
 class BaseBuilder:
