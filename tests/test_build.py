@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -110,3 +111,37 @@ def test_cli_build_unknown_preset_fails(tmp_path, capsys) -> None:
 
     assert exit_code == 1
     assert "Error:" in captured.err
+
+
+def test_run_build_invalid_preset_fails_before_creating_output(tmp_path) -> None:
+    model_path = tmp_path / "resnet50.onnx"
+    output_dir = tmp_path / "builds"
+    presets_root = tmp_path / "presets"
+    preset_dir = presets_root / "rknn"
+    preset_dir.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    (preset_dir / "invalid.json").write_text(
+        json.dumps(
+            {
+                "name": "rknn/invalid",
+                "backend": "rknn",
+                "target": "jetson",
+                "source_format": "onnx",
+                "artifact_format": "rknn",
+                "build_options": {"precision": "fp16"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="target"):
+        run_build(
+            model_path=model_path,
+            preset_id="rknn/invalid",
+            output_dir=output_dir,
+            presets_root=presets_root,
+        )
+
+    build_dir = output_dir / "resnet50__jetson__rknn"
+    assert not build_dir.exists()
+    assert not (output_dir / "metadata.json").exists()

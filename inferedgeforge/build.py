@@ -7,7 +7,7 @@ from pathlib import Path
 
 from inferedgeforge.builders import BuildRequest, get_builder
 from inferedgeforge.metadata import write_build_metadata
-from inferedgeforge.presets import load_preset_by_id
+from inferedgeforge.presets import load_preset_by_id, validate_preset_for_build
 from inferedgeforge.schemas import (
     ArtifactRecord,
     BuildInfo,
@@ -75,6 +75,7 @@ def run_build(
         raise FileNotFoundError(f"Model file not found: {source_path}")
 
     preset = load_preset_by_id(preset_id, presets_root=presets_root)
+    validate_preset_for_build(preset)
     builder = get_builder(preset.backend)
 
     output_root = Path(output_dir)
