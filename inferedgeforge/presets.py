@@ -9,6 +9,16 @@ from typing import Any
 from inferedgeforge.schemas import PresetDefinition
 
 
+def supported_backend_names() -> tuple[str, ...]:
+    return ("rknn", "tensorrt")
+
+
+def validate_preset_for_build(preset: PresetDefinition) -> None:
+    if not isinstance(preset, PresetDefinition):
+        raise ValueError("Preset must be a PresetDefinition instance.")
+    preset.validate_for_build()
+
+
 def load_preset_file(path: str | Path) -> PresetDefinition:
     preset_path = Path(path)
     if not preset_path.is_file():
