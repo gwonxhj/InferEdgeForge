@@ -408,15 +408,19 @@ def test_inspect_build_summary_output(tmp_path, capsys) -> None:
 
     assert exit_code == 0
     assert "Build:" in captured.out
-    assert "Artifact:" in captured.out
     assert "Preset:" in captured.out
+    assert "Source Model:" in captured.out
+    assert "Artifact:" in captured.out
+    assert "Run Status:" in captured.out
+    assert "Next Step:" in captured.out
     assert "name: tensorrt/jetson_fp16" in captured.out
     assert "precision=fp16" in captured.out
-    assert f"Source SHA256: {expected_sha256}" in captured.out
-    assert "Artifact SHA256:" in captured.out
-    assert "Run Status:" in captured.out
+    assert f"path: {model_path}" in captured.out
+    assert f"sha256: {expected_sha256}" in captured.out
+    assert f"sha256: {metadata.artifacts[0].sha256}" in captured.out
     assert "status: completed" in captured.out
     assert "structured_result_path: results/test.json" in captured.out
+    assert "summary_file_path:" in captured.out
     assert "ready for comparison in InferEdgeLab" in captured.out
 
 
@@ -440,10 +444,13 @@ def test_inspect_build_summary_without_run(tmp_path, capsys) -> None:
 
     assert exit_code == 0
     assert "Build:" in captured.out
+    assert "Preset:" in captured.out
+    assert "Source Model:" in captured.out
     assert "Artifact:" in captured.out
-    assert f"Source SHA256: {expected_sha256}" in captured.out
-    assert "Artifact SHA256:" in captured.out
     assert "Run Status:" in captured.out
+    assert "Next Step:" in captured.out
+    assert f"path: {model_path}" in captured.out
+    assert f"sha256: {expected_sha256}" in captured.out
     assert "no benchmark run yet" in captured.out
     assert "run run-benchmark to generate validation results" in captured.out
 

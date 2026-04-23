@@ -403,9 +403,16 @@ def _format_build_options(build_options: dict[str, object]) -> str:
     return ", ".join(f"{key}={value}" for key, value in sorted(build_options.items()))
 
 
-def format_inspect_summary(metadata: BuildMetadata, run_summary: dict[str, object] | None) -> str:
-    artifact_path = metadata.artifacts[0].path if metadata.artifacts else "none"
-    artifact_sha256 = metadata.artifacts[0].sha256 if metadata.artifacts else None
+def _format_build_section(metadata: BuildMetadata) -> list[str]:
+    return [
+        "Build:",
+        f"  build_id: {metadata.build.build_id}",
+        f"  backend: {metadata.build.backend}",
+        f"  target: {metadata.build.target}",
+    ]
+
+
+def _format_preset_section(metadata: BuildMetadata) -> list[str]:
     preset_name = (
         metadata.preset_snapshot.name if metadata.preset_snapshot is not None else metadata.build.preset_name
     )
@@ -413,45 +420,66 @@ def format_inspect_summary(metadata: BuildMetadata, run_summary: dict[str, objec
         metadata.preset_snapshot.build_options if metadata.preset_snapshot is not None else {}
     )
     lines = [
-        "Build:",
-        f"  build_id: {metadata.build.build_id}",
-        f"  backend: {metadata.build.backend}",
-        f"  target: {metadata.build.target}",
-        f"  Source SHA256: {metadata.source_model.sha256 or 'unknown'}",
         "Preset:",
         f"  name: {preset_name}",
     ]
     if preset_build_options:
         lines.append(f"  build_options: {_format_build_options(preset_build_options)}")
-    lines.extend(
-        [
-            "Artifact:",
-            f"  path: {artifact_path}",
-            f"  Artifact SHA256: {artifact_sha256 or 'unknown'}",
-            "Run Status:",
-        ]
-    )
+    return lines
 
+
+def _format_source_section(metadata: BuildMetadata) -> list[str]:
+    return [
+        "Source Model:",
+        f"  path: {metadata.source_model.path}",
+        f"  sha256: {metadata.source_model.sha256 or 'unknown'}",
+    ]
+
+
+def _format_artifact_section(metadata: BuildMetadata) -> list[str]:
+    artifact = metadata.artifacts[0] if metadata.artifacts else None
+    return [
+        "Artifact:",
+        f"  path: {artifact.path if artifact is not None else 'none'}",
+        f"  sha256: {artifact.sha256 if artifact is not None and artifact.sha256 else 'unknown'}",
+    ]
+
+
+def _format_run_status_section(run_summary: dict[str, object] | None) -> list[str]:
+    lines = ["Run Status:"]
     if run_summary is None:
         lines.append("  no benchmark run yet")
-        lines.extend(
-            [
-                "Next Step:",
-                "  run run-benchmark to generate validation results",
-            ]
-        )
     else:
         status = run_summary.get("status", "unknown")
         lines.append(f"  status: {status}")
         structured_result_path = run_summary.get("structured_result_path")
         if structured_result_path:
             lines.append(f"  structured_result_path: {structured_result_path}")
-        lines.extend(
-            [
-                "Next Step:",
-                "  ready for comparison in InferEdgeLab",
-            ]
-        )
+        summary_file_path = run_summary.get("summary_file_path")
+        if summary_file_path:
+            lines.append(f"  summary_file_path: {summary_file_path}")
+    return lines
+
+
+def _format_next_step_section(run_summary: dict[str, object] | None) -> list[str]:
+    if run_summary is None:
+        hint = "run run-benchmark to generate validation results"
+    else:
+        hint = "ready for comparison in InferEdgeLab"
+    return [
+        "Next Step:",
+        f"  {hint}",
+    ]
+
+
+def format_inspect_summary(metadata: BuildMetadata, run_summary: dict[str, object] | None) -> str:
+    lines: list[str] = []
+    lines.extend(_format_build_section(metadata))
+    lines.extend(_format_preset_section(metadata))
+    lines.extend(_format_source_section(metadata))
+    lines.extend(_format_artifact_section(metadata))
+    lines.extend(_format_run_status_section(run_summary))
+    lines.extend(_format_next_step_section(run_summary))
 
     return "\n".join(lines)
 
