@@ -10,6 +10,7 @@ from typing import Sequence
 
 from inferedgeforge.build import (
     create_build_plan,
+    format_inspect_summary,
     inspect_build_metadata,
     run_lab_profile,
     run_build,
@@ -67,6 +68,9 @@ def _cmd_show_lab_profile_command(args: argparse.Namespace) -> int:
 def _cmd_inspect_build(args: argparse.Namespace) -> int:
     metadata = read_build_metadata(args.metadata_path)
     payload = inspect_build_metadata(metadata)
+    if args.summary:
+        print(format_inspect_summary(metadata, payload["run_summary"]))
+        return 0
     print(json.dumps(payload, indent=2))
     return 0
 
@@ -157,6 +161,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Show a consolidated build inspection summary derived from metadata.",
     )
     inspect_parser.add_argument("metadata_path", help="Path to a build metadata.json file.")
+    inspect_parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="Show a concise human-readable build inspection summary.",
+    )
     inspect_parser.set_defaults(func=_cmd_inspect_build)
 
     run_parser = subparsers.add_parser(

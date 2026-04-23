@@ -361,6 +361,67 @@ def test_inspect_build_prints_json(tmp_path, capsys, monkeypatch) -> None:
     assert payload["run_summary"] is None
 
 
+def test_inspect_build_summary_output(tmp_path, capsys) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "model.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    write_run_summary(
+        metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "structured_result_path": "results/test.json",
+            "summary_file_path": str(output_dir / "model__jetson__tensorrt" / "run_summary.json"),
+            "status": "completed",
+        },
+    )
+    metadata_path = output_dir / "model__jetson__tensorrt" / "metadata.json"
+
+    exit_code = main(["inspect-build", "--summary", str(metadata_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Build:" in captured.out
+    assert "Artifact:" in captured.out
+    assert "Run Status:" in captured.out
+    assert "status: completed" in captured.out
+    assert "structured_result_path: results/test.json" in captured.out
+    assert "ready for comparison in InferEdgeLab" in captured.out
+
+
+def test_inspect_build_summary_without_run(tmp_path, capsys) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "model.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    metadata_path = output_dir / "model__jetson__tensorrt" / "metadata.json"
+
+    exit_code = main(["inspect-build", "--summary", str(metadata_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Build:" in captured.out
+    assert "Artifact:" in captured.out
+    assert "Run Status:" in captured.out
+    assert "no benchmark run yet" in captured.out
+    assert "run run-benchmark to generate validation results" in captured.out
+
+
 def test_inspect_build_includes_run_summary_when_present(tmp_path, capsys, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "model.onnx"
