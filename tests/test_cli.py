@@ -142,3 +142,68 @@ def test_show_lab_profile_input_fails_without_lab_compat(tmp_path, capsys) -> No
 
     assert exit_code == 1
     assert "Error:" in captured.err
+
+
+def test_show_lab_profile_command_prints_command(tmp_path, capsys, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "resnet50.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _install_fake_rknn(monkeypatch)
+
+    run_build(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    metadata_path = output_dir / "resnet50__rk3588__rknn" / "metadata.json"
+
+    exit_code = main(["show-lab-profile-command", str(metadata_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "python -m inferedgelab.cli profile" in captured.out
+    assert "--engine rknn" in captured.out
+    assert "--device-name rk3588" in captured.out
+    assert "--precision fp16" in captured.out
+
+
+def test_show_lab_profile_command_fails_without_lab_compat(tmp_path, capsys) -> None:
+    metadata_path = tmp_path / "metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "0.1.0",
+                "build": {
+                    "build_id": "build-001",
+                    "timestamp": "2026-04-23T12:00:00Z",
+                    "preset_name": "rknn/rk3588_fp16",
+                    "backend": "rknn",
+                    "target": "rk3588",
+                },
+                "source_model": {
+                    "path": "models/resnet50.onnx",
+                    "format": "onnx",
+                },
+                "artifacts": [
+                    {
+                        "path": "artifacts/model.rknn",
+                        "format": "rknn",
+                        "role": "deployment_model",
+                    }
+                ],
+                "handoff": {
+                    "consumer": "InferEdgeLab",
+                    "ready": True,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["show-lab-profile-command", str(metadata_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "Error:" in captured.err

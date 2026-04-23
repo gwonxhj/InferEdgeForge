@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from inferedgeforge.build import run_build, to_lab_profile_input
+from inferedgeforge.build import run_build, to_lab_profile_command, to_lab_profile_input
 from inferedgeforge.cli import main
 
 
@@ -188,6 +188,70 @@ def test_run_build_metadata_still_maps_to_lab_profile_input(tmp_path, monkeypatc
         "requested_height": None,
         "requested_width": None,
     }
+
+
+def test_to_lab_profile_command_returns_expected_command(tmp_path, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "resnet50.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _install_fake_rknn(monkeypatch, tmp_path)
+
+    metadata = run_build(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+
+    command = to_lab_profile_command(metadata)
+
+    assert "python -m inferedgelab.cli profile" in command
+    assert str(model_path) in command
+    assert "--engine rknn" in command
+    assert "--engine-path" in command
+    assert "--device-name rk3588" in command
+    assert "--precision fp16" in command
+
+
+def test_to_lab_profile_command_includes_shape_hints_when_present(tmp_path) -> None:
+    model_path = tmp_path / "resnet50.onnx"
+    output_dir = tmp_path / "builds"
+    presets_root = tmp_path / "presets"
+    preset_dir = presets_root / "tensorrt"
+    preset_dir.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    (preset_dir / "jetson_shape.json").write_text(
+        json.dumps(
+            {
+                "name": "tensorrt/jetson_shape",
+                "backend": "tensorrt",
+                "target": "jetson",
+                "source_format": "onnx",
+                "artifact_format": "engine",
+                "build_options": {"precision": "fp16", "workspace_mb": 2048},
+                "metadata": {
+                    "requested_batch": 1,
+                    "requested_height": 224,
+                    "requested_width": 224,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_shape",
+        output_dir=output_dir,
+        presets_root=presets_root,
+    )
+
+    command = to_lab_profile_command(metadata)
+
+    assert "--batch 1" in command
+    assert "--height 224" in command
+    assert "--width 224" in command
 
 
 def test_run_build_propagates_shape_hints_into_lab_compat(tmp_path) -> None:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+import shlex
 
 from inferedgeforge.builders import BuildRequest, get_builder
 from inferedgeforge.metadata import write_build_metadata
@@ -143,6 +144,34 @@ def to_lab_profile_input(metadata: BuildMetadata) -> dict[str, object]:
         "requested_height": runtime.requested_height,
         "requested_width": runtime.requested_width,
     }
+
+
+def to_lab_profile_command(metadata: BuildMetadata) -> str:
+    payload = to_lab_profile_input(metadata)
+    parts = [
+        "python",
+        "-m",
+        "inferedgelab.cli",
+        "profile",
+        shlex.quote(metadata.source_model.path),
+        "--engine",
+        shlex.quote(str(payload["engine"])),
+        "--engine-path",
+        shlex.quote(str(payload["engine_path"])),
+        "--device-name",
+        shlex.quote(str(payload["device"])),
+        "--precision",
+        shlex.quote(str(payload["precision"])),
+    ]
+
+    if payload["requested_batch"] is not None:
+        parts.extend(["--batch", shlex.quote(str(payload["requested_batch"]))])
+    if payload["requested_height"] is not None:
+        parts.extend(["--height", shlex.quote(str(payload["requested_height"]))])
+    if payload["requested_width"] is not None:
+        parts.extend(["--width", shlex.quote(str(payload["requested_width"]))])
+
+    return " ".join(parts)
 
 
 def run_build(
