@@ -39,6 +39,10 @@ python -m inferedgeforge.cli run-benchmark \
 
 This final step turns the handoff-ready metadata into an executed downstream validation step.
 
+## Additional Example Flows
+
+See [preset-build-examples.md](preset-build-examples.md) for TensorRT- and RKNN-oriented preset flows, including dry-run, build, inspect, and handoff usage patterns.
+
 ## What These Examples Demonstrate
 
 - Forge creates deployment artifacts and structured metadata.
