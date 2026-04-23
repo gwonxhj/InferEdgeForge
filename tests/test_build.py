@@ -7,12 +7,20 @@ from pathlib import Path
 
 import pytest
 
-from inferedgeforge.build import create_build_plan, run_build, to_lab_profile_command, to_lab_profile_input
+from inferedgeforge.build import (
+    create_build_plan,
+    run_build,
+    run_lab_profile,
+    to_lab_profile_command,
+    to_lab_profile_input,
+)
 from inferedgeforge.cli import main
 from inferedgeforge.schemas import (
     ArtifactRecord,
     BuildInfo,
     BuildMetadata,
+    LabCompatibility,
+    LabRuntimeMapping,
     SourceModelInfo,
     ValidationHandoff,
 )
@@ -374,6 +382,54 @@ def test_inspect_build_metadata_without_lab_compat_sets_null_fields() -> None:
 
     assert payload["lab_profile_input"] is None
     assert payload["lab_profile_command"] is None
+
+
+def test_run_lab_profile_failure_raises(monkeypatch) -> None:
+    class DummyResult:
+        returncode = 1
+        stdout = ""
+        stderr = "error"
+
+    def fake_run(*args, **kwargs):
+        return DummyResult()
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    metadata = BuildMetadata(
+        schema_version="0.1.0",
+        build=BuildInfo(
+            build_id="id",
+            timestamp="time",
+            preset_name="preset",
+            backend="backend",
+            target="target",
+        ),
+        source_model=SourceModelInfo(
+            path="m.onnx",
+            format="onnx",
+        ),
+        artifacts=[
+            ArtifactRecord(
+                path="a",
+                format="fmt",
+                role="role",
+            )
+        ],
+        handoff=ValidationHandoff(consumer="lab", ready=True),
+        lab_compat=LabCompatibility(
+            profile_ready=True,
+            runtime=LabRuntimeMapping(
+                engine="backend",
+                device="target",
+                precision="fp16",
+                engine_path="artifact.engine",
+                runtime_artifact_path="artifact.engine",
+            ),
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="InferEdgeLab profile execution failed."):
+        run_lab_profile(metadata)
 
 
 def test_run_build_propagates_shape_hints_into_lab_compat(tmp_path) -> None:

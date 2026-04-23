@@ -11,6 +11,7 @@ from typing import Sequence
 from inferedgeforge.build import (
     create_build_plan,
     inspect_build_metadata,
+    run_lab_profile,
     run_build,
     to_lab_profile_command,
     to_lab_profile_input,
@@ -67,6 +68,11 @@ def _cmd_inspect_build(args: argparse.Namespace) -> int:
     payload = inspect_build_metadata(metadata)
     print(json.dumps(payload, indent=2))
     return 0
+
+
+def _cmd_run_benchmark(args: argparse.Namespace) -> int:
+    metadata = read_build_metadata(args.metadata_path)
+    return run_lab_profile(metadata)
 
 
 def _metadata_path(metadata: BuildMetadata) -> Path:
@@ -141,6 +147,13 @@ def build_parser() -> argparse.ArgumentParser:
     inspect_parser.add_argument("metadata_path", help="Path to a build metadata.json file.")
     inspect_parser.set_defaults(func=_cmd_inspect_build)
 
+    run_parser = subparsers.add_parser(
+        "run-benchmark",
+        help="Execute InferEdgeLab profile using build metadata.",
+    )
+    run_parser.add_argument("metadata_path", help="Path to metadata.json")
+    run_parser.set_defaults(func=_cmd_run_benchmark)
+
     build_parser = subparsers.add_parser("build", help="Run the MVP build flow.")
     build_parser.add_argument("--model", required=True, help="Path to the source ONNX model.")
     build_parser.add_argument("--preset", required=True, help="Preset identifier in 'backend/name' format.")
@@ -166,7 +179,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     try:
         return int(args.func(args))
-    except (FileNotFoundError, ValueError) as exc:
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 

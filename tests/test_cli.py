@@ -153,6 +153,39 @@ def test_build_dry_run_with_invalid_preset_returns_error(tmp_path, capsys) -> No
     assert not output_dir.exists()
 
 
+def test_run_benchmark_executes_command(tmp_path, monkeypatch, capsys) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "model.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy", encoding="utf-8")
+
+    class DummyResult:
+        def __init__(self) -> None:
+            self.returncode = 0
+            self.stdout = "OK"
+            self.stderr = ""
+
+    def fake_run(*args, **kwargs):
+        return DummyResult()
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+
+    metadata_path = output_dir / "model__jetson__tensorrt" / "metadata.json"
+
+    exit_code = main(["run-benchmark", str(metadata_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "OK" in captured.out
+
+
 def test_show_lab_profile_input_prints_json(tmp_path, capsys, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "resnet50.onnx"

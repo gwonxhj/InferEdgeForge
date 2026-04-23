@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 import shlex
+import subprocess
 
 from inferedgeforge.builders import BuildRequest, get_builder
 from inferedgeforge.metadata import write_build_metadata
@@ -208,6 +209,25 @@ def to_lab_profile_command(metadata: BuildMetadata) -> str:
         parts.extend(["--width", shlex.quote(str(payload["requested_width"]))])
 
     return " ".join(parts)
+
+
+def run_lab_profile(metadata: BuildMetadata) -> int:
+    command = to_lab_profile_command(metadata)
+
+    result = subprocess.run(
+        command,
+        shell=True,
+        text=True,
+        capture_output=True,
+    )
+
+    print(result.stdout)
+
+    if result.returncode != 0:
+        print(result.stderr)
+        raise RuntimeError("InferEdgeLab profile execution failed.")
+
+    return result.returncode
 
 
 def inspect_build_metadata(metadata: BuildMetadata) -> dict[str, object]:
