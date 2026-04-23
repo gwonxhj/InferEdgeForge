@@ -70,6 +70,50 @@ def test_show_preset_prints_json(capsys) -> None:
     assert payload["target"] == "rk3588"
 
 
+def test_list_builds_groups_builds_by_source_model(tmp_path, capsys, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "models" / "test.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _install_fake_rknn(monkeypatch)
+
+    tensorrt_metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    run_build(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    write_run_summary(
+        tensorrt_metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "structured_result_path": "results/test.json",
+            "status": "completed",
+        },
+    )
+
+    exit_code = main(["list-builds", "--dir", str(output_dir), "--model", str(model_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"Build Group: {model_path}" in captured.out
+    assert "tensorrt/jetson_fp16" in captured.out
+    assert "rknn/rk3588_fp16" in captured.out
+    assert "artifact : " in captured.out
+    assert "model.engine" in captured.out
+    assert "model.rknn" in captured.out
+    assert "status   : ready (benchmark available)" in captured.out
+    assert "status   : pending (no benchmark)" in captured.out
+
+
 def test_build_parser_constructs() -> None:
     parser = build_parser()
 

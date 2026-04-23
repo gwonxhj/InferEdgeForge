@@ -9,8 +9,11 @@ from pathlib import Path
 from typing import Sequence
 
 from inferedgeforge.build import (
+    collect_metadata_files,
     create_build_plan,
     format_inspect_summary,
+    format_build_list,
+    group_by_source_model,
     inspect_build_metadata,
     run_lab_profile,
     run_build,
@@ -81,6 +84,18 @@ def _cmd_run_benchmark(args: argparse.Namespace) -> int:
     write_run_summary(metadata, result)
     print(json.dumps(result, indent=2))
     return int(result["returncode"])
+
+
+def _cmd_list_builds(args: argparse.Namespace) -> int:
+    metadata_items = []
+    for metadata_path in collect_metadata_files(args.dir):
+        metadata = read_build_metadata(metadata_path)
+        if args.model is not None and metadata.source_model.path != args.model:
+            continue
+        metadata_items.append(metadata)
+
+    print(format_build_list(group_by_source_model(metadata_items)))
+    return 0
 
 
 def _metadata_path(metadata: BuildMetadata) -> Path:
@@ -166,6 +181,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     run_parser.add_argument("metadata_path", help="Path to metadata.json")
     run_parser.set_defaults(func=_cmd_run_benchmark)
+
+    list_builds_parser = subparsers.add_parser(
+        "list-builds",
+        help="List build metadata grouped by source model.",
+    )
+    list_builds_parser.add_argument(
+        "--dir",
+        required=True,
+        help="Directory containing build metadata.json files.",
+    )
+    list_builds_parser.add_argument(
+        "--model",
+        help="Optional source model path to filter by.",
+    )
+    list_builds_parser.set_defaults(func=_cmd_list_builds)
 
     build_parser = subparsers.add_parser("build", help="Run the MVP build flow.")
     build_parser.add_argument("--model", required=True, help="Path to the source ONNX model.")

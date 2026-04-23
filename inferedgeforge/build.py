@@ -399,6 +399,62 @@ def inspect_build_metadata(metadata: BuildMetadata) -> dict[str, object]:
     }
 
 
+def collect_metadata_files(directory: str | Path) -> list[Path]:
+    root = Path(directory)
+    if not root.is_dir():
+        raise FileNotFoundError(f"Build directory not found: {root}")
+    return sorted(root.rglob("metadata.json"))
+
+
+def group_by_source_model(metadata_items: list[BuildMetadata]) -> dict[str, list[BuildMetadata]]:
+    groups: dict[str, list[BuildMetadata]] = {}
+    for metadata in metadata_items:
+        groups.setdefault(metadata.source_model.path, []).append(metadata)
+    return groups
+
+
+def _primary_artifact_path(metadata: BuildMetadata) -> str:
+    if not metadata.artifacts:
+        return "none"
+    return metadata.artifacts[0].path
+
+
+def _build_status(metadata: BuildMetadata) -> str:
+    if metadata.artifacts and _find_run_summary_path(metadata).is_file():
+        return "ready (benchmark available)"
+    return "pending (no benchmark)"
+
+
+def format_build_list(groups: dict[str, list[BuildMetadata]]) -> str:
+    if not groups:
+        return "No builds found."
+
+    lines: list[str] = []
+    for source_model in sorted(groups):
+        if lines:
+            lines.append("")
+        lines.extend(
+            [
+                f"Build Group: {source_model}",
+                "--------------------------------",
+            ]
+        )
+        builds = sorted(
+            groups[source_model],
+            key=lambda item: (item.build.preset_name, item.build.backend, item.build.target),
+        )
+        for index, metadata in enumerate(builds, start=1):
+            lines.extend(
+                [
+                    f"[{index}] {metadata.build.preset_name}",
+                    f"    artifact : {_primary_artifact_path(metadata)}",
+                    f"    status   : {_build_status(metadata)}",
+                ]
+            )
+
+    return "\n".join(lines)
+
+
 def _format_build_options(build_options: dict[str, object]) -> str:
     return ", ".join(f"{key}={value}" for key, value in sorted(build_options.items()))
 
