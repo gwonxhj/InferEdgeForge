@@ -360,6 +360,10 @@ def test_inspect_build_prints_json(tmp_path, capsys, monkeypatch) -> None:
     assert payload["build"]["backend"] == "rknn"
     assert payload["source_model"]["sha256"] == expected_sha256
     assert payload["artifacts"][0]["sha256"] == hashlib.sha256(b"fake rknn artifact").hexdigest()
+    assert payload["preset_snapshot"]["name"] == "rknn/rk3588_fp16"
+    assert payload["preset_snapshot"]["backend"] == "rknn"
+    assert payload["preset_snapshot"]["target"] == "rk3588"
+    assert payload["preset_snapshot"]["build_options"]["precision"] == "fp16"
     assert payload["lab_profile_input"]["engine"] == "rknn"
     assert "python -m inferedgelab.cli profile" in payload["lab_profile_command"]
     assert payload["run_summary"] is None
@@ -396,6 +400,9 @@ def test_inspect_build_summary_output(tmp_path, capsys) -> None:
     assert exit_code == 0
     assert "Build:" in captured.out
     assert "Artifact:" in captured.out
+    assert "Preset:" in captured.out
+    assert "name: tensorrt/jetson_fp16" in captured.out
+    assert "precision=fp16" in captured.out
     assert f"Source SHA256: {expected_sha256}" in captured.out
     assert "Artifact SHA256:" in captured.out
     assert "Run Status:" in captured.out
