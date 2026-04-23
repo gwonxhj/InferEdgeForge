@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from inferedgeforge.build import run_build, to_lab_profile_command, to_lab_profile_input
+from inferedgeforge.build import create_build_plan, run_build, to_lab_profile_command, to_lab_profile_input
 from inferedgeforge.cli import main
 from inferedgeforge.schemas import (
     ArtifactRecord,
@@ -80,6 +80,63 @@ def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
     assert metadata.lab_compat.runtime.runtime_artifact_path == str(build_dir / "model.rknn")
     assert (build_dir / "metadata.json").exists()
     assert (build_dir / "model.rknn").exists()
+
+
+def test_create_build_plan_returns_expected_preview(tmp_path) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "resnet50.onnx"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    payload = create_build_plan(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        presets_root=repo_root / "presets",
+    )
+
+    assert payload["model"] == str(model_path)
+    assert payload["preset"] == "rknn/rk3588_fp16"
+    assert payload["backend"] == "rknn"
+    assert payload["target"] == "rk3588"
+    assert payload["artifact_format"] == "rknn"
+    assert payload["output_pattern"] == "builds/resnet50__rk3588__rknn/model.rknn"
+    assert payload["lab_profile_preview"] == {
+        "engine": "rknn",
+        "device": "rk3588",
+        "precision": "fp16",
+        "engine_path": "builds/resnet50__rk3588__rknn/model.rknn",
+        "runtime_artifact_path": "builds/resnet50__rk3588__rknn/model.rknn",
+        "requested_batch": None,
+        "requested_height": None,
+        "requested_width": None,
+    }
+
+
+def test_create_build_plan_invalid_preset_raises(tmp_path) -> None:
+    model_path = tmp_path / "resnet50.onnx"
+    presets_root = tmp_path / "presets"
+    preset_dir = presets_root / "rknn"
+    preset_dir.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    (preset_dir / "broken.json").write_text(
+        json.dumps(
+            {
+                "name": "rknn/broken",
+                "backend": "rknn",
+                "target": "rk3588",
+                "source_format": "onnx",
+                "artifact_format": "engine",
+                "build_options": {"precision": "fp16"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="artifact_format"):
+        create_build_plan(
+            model_path=model_path,
+            preset_id="rknn/broken",
+            presets_root=presets_root,
+        )
 
 
 def test_run_build_with_tensorrt_preset_creates_engine_artifact(tmp_path) -> None:

@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Sequence
 
 from inferedgeforge.build import (
+    create_build_plan,
     inspect_build_metadata,
     run_build,
     to_lab_profile_command,
@@ -74,6 +75,15 @@ def _metadata_path(metadata: BuildMetadata) -> Path:
 
 
 def _cmd_build(args: argparse.Namespace) -> int:
+    if args.dry_run:
+        payload = create_build_plan(
+            model_path=args.model,
+            preset_id=args.preset,
+            presets_root=args.presets_root,
+        )
+        print(json.dumps(payload, indent=2))
+        return 0
+
     metadata = run_build(
         model_path=args.model,
         preset_id=args.preset,
@@ -135,6 +145,11 @@ def build_parser() -> argparse.ArgumentParser:
     build_parser.add_argument("--model", required=True, help="Path to the source ONNX model.")
     build_parser.add_argument("--preset", required=True, help="Preset identifier in 'backend/name' format.")
     build_parser.add_argument("--output", required=True, help="Output directory for build artifacts.")
+    build_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview the build plan as JSON without executing the backend builder.",
+    )
     build_parser.add_argument(
         "--presets-root",
         default="presets",

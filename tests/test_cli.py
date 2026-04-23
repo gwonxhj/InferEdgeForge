@@ -75,6 +75,84 @@ def test_build_parser_constructs() -> None:
     assert parser.prog == "inferedgeforge"
 
 
+def test_build_dry_run_prints_json_without_creating_output_dir(tmp_path, capsys) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "resnet50.onnx"
+    output_dir = tmp_path / "custom-builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    exit_code = main(
+        [
+            "build",
+            "--model",
+            str(model_path),
+            "--preset",
+            "rknn/rk3588_fp16",
+            "--output",
+            str(output_dir),
+            "--presets-root",
+            str(repo_root / "presets"),
+            "--dry-run",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert captured.err == ""
+    payload = json.loads(captured.out)
+    assert payload["model"] == str(model_path)
+    assert payload["preset"] == "rknn/rk3588_fp16"
+    assert payload["backend"] == "rknn"
+    assert payload["target"] == "rk3588"
+    assert payload["artifact_format"] == "rknn"
+    assert payload["output_pattern"] == "builds/resnet50__rk3588__rknn/model.rknn"
+    assert payload["lab_profile_preview"]["engine"] == "rknn"
+    assert not output_dir.exists()
+
+
+def test_build_dry_run_with_invalid_preset_returns_error(tmp_path, capsys) -> None:
+    model_path = tmp_path / "resnet50.onnx"
+    output_dir = tmp_path / "builds"
+    presets_root = tmp_path / "presets"
+    preset_dir = presets_root / "rknn"
+    preset_dir.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    (preset_dir / "broken.json").write_text(
+        json.dumps(
+            {
+                "name": "rknn/broken",
+                "backend": "rknn",
+                "target": "rk3588",
+                "source_format": "onnx",
+                "artifact_format": "engine",
+                "build_options": {"precision": "fp16"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(
+        [
+            "build",
+            "--model",
+            str(model_path),
+            "--preset",
+            "rknn/broken",
+            "--output",
+            str(output_dir),
+            "--presets-root",
+            str(presets_root),
+            "--dry-run",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "Error:" in captured.err
+    assert not output_dir.exists()
+
+
 def test_show_lab_profile_input_prints_json(tmp_path, capsys, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "resnet50.onnx"

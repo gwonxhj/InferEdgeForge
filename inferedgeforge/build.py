@@ -129,6 +129,42 @@ def create_build_metadata(
     )
 
 
+def create_build_plan(
+    model_path: str | Path,
+    preset_id: str,
+    presets_root: str | Path = "presets",
+) -> dict[str, object]:
+    source_path = Path(model_path)
+    preset = load_preset_by_id(preset_id, presets_root=presets_root)
+    validate_preset_for_build(preset)
+
+    artifact_path = (
+        Path("builds")
+        / f"{source_path.stem}__{preset.target}__{preset.backend}"
+        / f"model.{preset.artifact_format}"
+    )
+    metadata = create_build_metadata(
+        model_path=source_path,
+        preset_name=preset.name,
+        backend=preset.backend,
+        target=preset.target,
+        artifact_paths=[str(artifact_path)],
+        artifact_format=preset.artifact_format,
+        preset_metadata=preset.metadata,
+        preset_build_options=preset.build_options,
+    )
+
+    return {
+        "model": str(source_path),
+        "preset": preset.name,
+        "backend": preset.backend,
+        "target": preset.target,
+        "artifact_format": preset.artifact_format,
+        "output_pattern": str(artifact_path),
+        "lab_profile_preview": to_lab_profile_input(metadata),
+    }
+
+
 def to_lab_profile_input(metadata: BuildMetadata) -> dict[str, object]:
     if metadata.lab_compat is None:
         raise ValueError("Build metadata does not include lab_compat.")
