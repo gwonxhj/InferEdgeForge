@@ -17,6 +17,7 @@ from inferedgeforge.build import (
     format_build_list,
     group_by_source_model,
     inspect_build_metadata,
+    rebuild_from_manifest,
     run_lab_profile,
     run_build,
     to_lab_profile_command,
@@ -128,6 +129,23 @@ def _cmd_show_compare_command(args: argparse.Namespace) -> int:
             right=args.right,
         )
     )
+    return 0
+
+
+def _cmd_rebuild_from_manifest(args: argparse.Namespace) -> int:
+    metadata = rebuild_from_manifest(
+        manifest_path=args.manifest_path,
+        output_dir=args.output,
+    )
+    artifact_path = Path(metadata.artifacts[0].path)
+    output_root = artifact_path.parent.parent
+
+    print("Rebuild completed")
+    print(f"Manifest : {args.manifest_path}")
+    print(f"Preset   : {metadata.build.preset_name}")
+    print(f"Model    : {metadata.source_model.path}")
+    print(f"Output   : {output_root}")
+    print(f"Metadata : {_metadata_path(metadata)}")
     return 0
 
 
@@ -268,6 +286,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional right preset name.",
     )
     compare_command_parser.set_defaults(func=_cmd_show_compare_command)
+
+    rebuild_parser = subparsers.add_parser(
+        "rebuild-from-manifest",
+        help="Rebuild an artifact using a stored manifest.json file.",
+    )
+    rebuild_parser.add_argument("manifest_path", help="Path to manifest.json")
+    rebuild_parser.add_argument(
+        "--output",
+        help="Optional output root for rebuilt artifacts.",
+    )
+    rebuild_parser.set_defaults(func=_cmd_rebuild_from_manifest)
 
     build_parser = subparsers.add_parser("build", help="Run the MVP build flow.")
     build_parser.add_argument("--model", required=True, help="Path to the source ONNX model.")
