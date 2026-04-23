@@ -8,6 +8,8 @@ from pathlib import Path
 import pytest
 
 from inferedgeforge.build import (
+    _extract_saved_report_path,
+    _extract_structured_result_path,
     create_build_plan,
     run_build,
     run_lab_profile,
@@ -430,6 +432,82 @@ def test_run_lab_profile_failure_raises(monkeypatch) -> None:
 
     with pytest.raises(RuntimeError, match="InferEdgeLab profile execution failed."):
         run_lab_profile(metadata)
+
+
+def test_extract_run_lab_profile_paths_from_stdout() -> None:
+    stdout = "\n".join(
+        [
+            "Profile complete",
+            "Saved: reports/test.json",
+            "Saved structured result: results/test.json",
+        ]
+    )
+
+    assert _extract_saved_report_path(stdout) == "reports/test.json"
+    assert _extract_structured_result_path(stdout) == "results/test.json"
+
+
+def test_run_lab_profile_success_returns_execution_summary(monkeypatch) -> None:
+    class DummyResult:
+        returncode = 0
+        stdout = "\n".join(
+            [
+                "Profile complete",
+                "Saved: reports/test.json",
+                "Saved structured result: results/test.json",
+            ]
+        )
+        stderr = ""
+
+    def fake_run(*args, **kwargs):
+        return DummyResult()
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    metadata = BuildMetadata(
+        schema_version="0.1.0",
+        build=BuildInfo(
+            build_id="build-001",
+            timestamp="2026-04-23T12:00:00Z",
+            preset_name="tensorrt/jetson_fp16",
+            backend="tensorrt",
+            target="jetson",
+        ),
+        source_model=SourceModelInfo(
+            path="models/test.onnx",
+            format="onnx",
+        ),
+        artifacts=[
+            ArtifactRecord(
+                path="builds/test__jetson__tensorrt/model.engine",
+                format="engine",
+                role="deployment_model",
+            )
+        ],
+        handoff=ValidationHandoff(consumer="InferEdgeLab", ready=True),
+        lab_compat=LabCompatibility(
+            profile_ready=True,
+            runtime=LabRuntimeMapping(
+                engine="tensorrt",
+                device="jetson",
+                precision="fp16",
+                engine_path="builds/test__jetson__tensorrt/model.engine",
+                runtime_artifact_path="builds/test__jetson__tensorrt/model.engine",
+            ),
+        ),
+    )
+
+    payload = run_lab_profile(metadata)
+
+    assert payload["command"] == (
+        "python -m inferedgelab.cli profile models/test.onnx --engine tensorrt "
+        "--engine-path builds/test__jetson__tensorrt/model.engine --device-name jetson --precision fp16"
+    )
+    assert payload["returncode"] == 0
+    assert payload["raw_report_path"] == "reports/test.json"
+    assert payload["structured_result_path"] == "results/test.json"
+    assert "Saved: reports/test.json" in str(payload["stdout"])
+    assert payload["stderr"] == ""
 
 
 def test_run_build_propagates_shape_hints_into_lab_compat(tmp_path) -> None:

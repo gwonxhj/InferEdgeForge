@@ -162,7 +162,13 @@ def test_run_benchmark_executes_command(tmp_path, monkeypatch, capsys) -> None:
     class DummyResult:
         def __init__(self) -> None:
             self.returncode = 0
-            self.stdout = "OK"
+            self.stdout = "\n".join(
+                [
+                    "OK",
+                    "Saved: reports/test.json",
+                    "Saved structured result: results/test.json",
+                ]
+            )
             self.stderr = ""
 
     def fake_run(*args, **kwargs):
@@ -184,6 +190,11 @@ def test_run_benchmark_executes_command(tmp_path, monkeypatch, capsys) -> None:
 
     assert exit_code == 0
     assert "OK" in captured.out
+    lines = captured.out.strip().splitlines()
+    summary_start = lines.index("{", len(lines) - 7)
+    summary = json.loads("\n".join(lines[summary_start:]))
+    assert summary["structured_result_path"] == "results/test.json"
+    assert summary["status"] == "completed"
 
 
 def test_show_lab_profile_input_prints_json(tmp_path, capsys, monkeypatch) -> None:
