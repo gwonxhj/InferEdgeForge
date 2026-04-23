@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -31,6 +32,14 @@ def _build_id(model_path: Path, preset_name: str, backend: str, timestamp: str) 
     safe_timestamp = "".join(char for char in timestamp if char.isalnum())
     preset_suffix = preset_name.rsplit("/", 1)[-1]
     return f"{model_path.stem}-{backend}-{preset_suffix}-{safe_timestamp}"
+
+
+def _compute_file_sha256(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as file:
+        for chunk in iter(lambda: file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _extract_requested_shape_from_preset_metadata(
@@ -161,6 +170,7 @@ def create_build_plan(
     source_path = Path(model_path)
     preset = load_preset_by_id(preset_id, presets_root=presets_root)
     validate_preset_for_build(preset)
+    source_sha256 = _compute_file_sha256(source_path) if source_path.is_file() else None
 
     artifact_path = _preview_artifact_path(
         model_path=source_path,
@@ -177,6 +187,7 @@ def create_build_plan(
         target=preset.target,
         artifact_paths=[str(artifact_path)],
         artifact_format=preset.artifact_format,
+        source_sha256=source_sha256,
         preset_metadata=preset.metadata,
         preset_build_options=preset.build_options,
     )
@@ -187,6 +198,7 @@ def create_build_plan(
         "backend": preset.backend,
         "target": preset.target,
         "artifact_format": preset.artifact_format,
+        "source_model_sha256": source_sha256,
         "artifact_path_preview": str(artifact_path),
         "metadata_path_preview": str(metadata_path),
         "run_summary_path_preview": str(run_summary_path),
@@ -337,6 +349,7 @@ def format_inspect_summary(metadata: BuildMetadata, run_summary: dict[str, objec
         f"  build_id: {metadata.build.build_id}",
         f"  backend: {metadata.build.backend}",
         f"  target: {metadata.build.target}",
+        f"  Source SHA256: {metadata.source_model.sha256 or 'unknown'}",
         "Artifact:",
         f"  path: {artifact_path}",
         "Run Status:",
@@ -375,6 +388,7 @@ def run_build(
     source_path = Path(model_path)
     if not source_path.is_file():
         raise FileNotFoundError(f"Model file not found: {source_path}")
+    source_sha256 = _compute_file_sha256(source_path)
 
     preset = load_preset_by_id(preset_id, presets_root=presets_root)
     validate_preset_for_build(preset)
@@ -400,6 +414,7 @@ def run_build(
         target=result.target,
         artifact_paths=result.artifact_paths,
         artifact_format=preset.artifact_format,
+        source_sha256=source_sha256,
         preset_metadata=preset.metadata,
         preset_build_options=preset.build_options,
     )

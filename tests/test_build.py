@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import types
@@ -71,6 +72,7 @@ def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
     model_path = tmp_path / "resnet50.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    expected_sha256 = hashlib.sha256(b"dummy onnx content").hexdigest()
     _install_fake_rknn(monkeypatch, tmp_path)
 
     metadata = run_build(
@@ -85,6 +87,7 @@ def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
     assert metadata.build.preset_name == "rknn/rk3588_fp16"
     assert metadata.build.backend == "rknn"
     assert metadata.build.target == "rk3588"
+    assert metadata.source_model.sha256 == expected_sha256
     assert metadata.lab_compat is not None
     assert metadata.lab_compat.profile_ready is True
     assert metadata.lab_compat.runtime.engine == "rknn"
@@ -100,6 +103,7 @@ def test_create_build_plan_returns_expected_preview(tmp_path) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "resnet50.onnx"
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    expected_sha256 = hashlib.sha256(b"dummy onnx content").hexdigest()
 
     payload = create_build_plan(
         model_path=model_path,
@@ -112,6 +116,7 @@ def test_create_build_plan_returns_expected_preview(tmp_path) -> None:
     assert payload["backend"] == "rknn"
     assert payload["target"] == "rk3588"
     assert payload["artifact_format"] == "rknn"
+    assert payload["source_model_sha256"] == expected_sha256
     assert payload["artifact_path_preview"] == "builds/resnet50__rk3588__rknn/model.rknn"
     assert payload["metadata_path_preview"] == "builds/resnet50__rk3588__rknn/metadata.json"
     assert payload["run_summary_path_preview"] == "builds/resnet50__rk3588__rknn/run_summary.json"
