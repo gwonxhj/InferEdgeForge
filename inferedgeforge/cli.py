@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from inferedgeforge.build import run_build, to_lab_profile_input
+from inferedgeforge.build import run_build, to_lab_profile_command, to_lab_profile_input
 from inferedgeforge.metadata import read_build_metadata
 from inferedgeforge.presets import load_preset_by_id
 from inferedgeforge.schemas import BuildMetadata
@@ -46,6 +46,13 @@ def _cmd_show_lab_profile_input(args: argparse.Namespace) -> int:
     metadata = read_build_metadata(args.metadata_path)
     payload = to_lab_profile_input(metadata)
     print(json.dumps(payload, indent=2))
+    return 0
+
+
+def _cmd_show_lab_profile_command(args: argparse.Namespace) -> int:
+    metadata = read_build_metadata(args.metadata_path)
+    command = to_lab_profile_command(metadata)
+    print(command)
     return 0
 
 
@@ -97,6 +104,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     show_lab_parser.add_argument("metadata_path", help="Path to a build metadata.json file.")
     show_lab_parser.set_defaults(func=_cmd_show_lab_profile_input)
+
+    show_lab_command_parser = subparsers.add_parser(
+        "show-lab-profile-command",
+        help="Show a runnable InferEdgeLab profile command derived from build metadata.",
+    )
+    show_lab_command_parser.add_argument("metadata_path", help="Path to a build metadata.json file.")
+    show_lab_command_parser.set_defaults(func=_cmd_show_lab_profile_command)
 
     build_parser = subparsers.add_parser("build", help="Run the MVP build flow.")
     build_parser.add_argument("--model", required=True, help="Path to the source ONNX model.")
