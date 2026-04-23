@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import types
@@ -340,6 +341,7 @@ def test_inspect_build_prints_json(tmp_path, capsys, monkeypatch) -> None:
     model_path = tmp_path / "resnet50.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    expected_sha256 = hashlib.sha256(b"dummy onnx content").hexdigest()
     _install_fake_rknn(monkeypatch)
 
     run_build(
@@ -356,6 +358,7 @@ def test_inspect_build_prints_json(tmp_path, capsys, monkeypatch) -> None:
     assert exit_code == 0
     payload = json.loads(captured.out)
     assert payload["build"]["backend"] == "rknn"
+    assert payload["source_model"]["sha256"] == expected_sha256
     assert payload["lab_profile_input"]["engine"] == "rknn"
     assert "python -m inferedgelab.cli profile" in payload["lab_profile_command"]
     assert payload["run_summary"] is None
@@ -366,6 +369,7 @@ def test_inspect_build_summary_output(tmp_path, capsys) -> None:
     model_path = tmp_path / "model.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    expected_sha256 = hashlib.sha256(b"dummy onnx content").hexdigest()
 
     metadata = run_build(
         model_path=model_path,
@@ -391,6 +395,7 @@ def test_inspect_build_summary_output(tmp_path, capsys) -> None:
     assert exit_code == 0
     assert "Build:" in captured.out
     assert "Artifact:" in captured.out
+    assert f"Source SHA256: {expected_sha256}" in captured.out
     assert "Run Status:" in captured.out
     assert "status: completed" in captured.out
     assert "structured_result_path: results/test.json" in captured.out
@@ -402,6 +407,7 @@ def test_inspect_build_summary_without_run(tmp_path, capsys) -> None:
     model_path = tmp_path / "model.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    expected_sha256 = hashlib.sha256(b"dummy onnx content").hexdigest()
 
     run_build(
         model_path=model_path,
@@ -417,6 +423,7 @@ def test_inspect_build_summary_without_run(tmp_path, capsys) -> None:
     assert exit_code == 0
     assert "Build:" in captured.out
     assert "Artifact:" in captured.out
+    assert f"Source SHA256: {expected_sha256}" in captured.out
     assert "Run Status:" in captured.out
     assert "no benchmark run yet" in captured.out
     assert "run run-benchmark to generate validation results" in captured.out
