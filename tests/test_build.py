@@ -90,6 +90,13 @@ def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
     assert metadata.build.target == "rk3588"
     assert metadata.source_model.sha256 == expected_sha256
     assert metadata.artifacts[0].sha256 == hashlib.sha256(b"fake rknn artifact").hexdigest()
+    assert metadata.preset_snapshot is not None
+    assert metadata.preset_snapshot.name == "rknn/rk3588_fp16"
+    assert metadata.preset_snapshot.backend == "rknn"
+    assert metadata.preset_snapshot.target == "rk3588"
+    assert metadata.preset_snapshot.build_options["precision"] == "fp16"
+    assert metadata.preset_snapshot.build_options["target_platform"] == "rk3588"
+    assert metadata.preset_snapshot.metadata["validation_handoff"] == "inferedgelab"
     assert metadata.lab_compat is not None
     assert metadata.lab_compat.profile_ready is True
     assert metadata.lab_compat.runtime.engine == "rknn"
@@ -101,6 +108,8 @@ def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
     assert (build_dir / "model.rknn").exists()
     persisted_metadata = read_build_metadata(build_dir / "metadata.json")
     assert persisted_metadata.artifacts[0].sha256 == metadata.artifacts[0].sha256
+    assert persisted_metadata.preset_snapshot is not None
+    assert persisted_metadata.preset_snapshot.to_dict() == metadata.preset_snapshot.to_dict()
 
 
 def test_create_build_plan_returns_expected_preview(tmp_path) -> None:
@@ -388,6 +397,11 @@ def test_inspect_build_metadata_includes_lab_handoff_details(tmp_path, monkeypat
     assert payload["source_model"]["format"] == "onnx"
     assert payload["artifacts"][0]["format"] == "rknn"
     assert payload["artifacts"][0]["sha256"] == metadata.artifacts[0].sha256
+    assert payload["preset_snapshot"]["name"] == "rknn/rk3588_fp16"
+    assert payload["preset_snapshot"]["backend"] == "rknn"
+    assert payload["preset_snapshot"]["target"] == "rk3588"
+    assert payload["preset_snapshot"]["build_options"]["precision"] == "fp16"
+    assert payload["preset_snapshot"]["metadata"]["validation_handoff"] == "inferedgelab"
     assert payload["handoff"]["consumer"] == "InferEdgeLab"
     assert payload["lab_profile_input"]["engine"] == "rknn"
     assert "python -m inferedgelab.cli profile" in payload["lab_profile_command"]

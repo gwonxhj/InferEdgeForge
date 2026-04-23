@@ -20,6 +20,14 @@ def _require_positive_int_or_none(value: Any, field_name: str) -> int | None:
     return value
 
 
+def _require_dict(value: Any, field_name: str) -> dict[str, object]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"Metadata field '{field_name}' must be a dictionary.")
+    return dict(value)
+
+
 @dataclass(slots=True)
 class ArtifactRecord:
     """Describes a generated artifact."""
@@ -57,6 +65,46 @@ class ArtifactRecord:
         if self.sha256 is not None:
             data["sha256"] = self.sha256
         return data
+
+
+@dataclass(slots=True)
+class PresetSnapshot:
+    """Captures the effective preset intent used for a build."""
+
+    name: str
+    backend: str
+    target: str
+    build_options: dict[str, object]
+    metadata: dict[str, object]
+
+    def __post_init__(self) -> None:
+        self.name = _require_non_empty_string(self.name, "preset_snapshot.name")
+        self.backend = _require_non_empty_string(self.backend, "preset_snapshot.backend")
+        self.target = _require_non_empty_string(self.target, "preset_snapshot.target")
+        self.build_options = _require_dict(self.build_options, "preset_snapshot.build_options")
+        self.metadata = _require_dict(self.metadata, "preset_snapshot.metadata")
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "PresetSnapshot":
+        if not isinstance(data, dict):
+            raise ValueError("PresetSnapshot data must be a dictionary.")
+
+        return cls(
+            name=data.get("name"),
+            backend=data.get("backend"),
+            target=data.get("target"),
+            build_options=data.get("build_options"),
+            metadata=data.get("metadata"),
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "backend": self.backend,
+            "target": self.target,
+            "build_options": self.build_options,
+            "metadata": self.metadata,
+        }
 
 
 @dataclass(slots=True)
@@ -263,6 +311,7 @@ class BuildMetadata:
     artifacts: list[ArtifactRecord]
     handoff: ValidationHandoff
     lab_compat: LabCompatibility | None = None
+    preset_snapshot: PresetSnapshot | None = None
 
     def __post_init__(self) -> None:
         self.schema_version = _require_non_empty_string(self.schema_version, "schema_version")
@@ -279,6 +328,10 @@ class BuildMetadata:
             raise ValueError("Metadata field 'handoff' must be a ValidationHandoff instance.")
         if self.lab_compat is not None and not isinstance(self.lab_compat, LabCompatibility):
             raise ValueError("Metadata field 'lab_compat' must be a LabCompatibility instance when provided.")
+        if self.preset_snapshot is not None and not isinstance(self.preset_snapshot, PresetSnapshot):
+            raise ValueError(
+                "Metadata field 'preset_snapshot' must be a PresetSnapshot instance when provided."
+            )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "BuildMetadata":
@@ -300,6 +353,11 @@ class BuildMetadata:
                 if data.get("lab_compat") is not None
                 else None
             ),
+            preset_snapshot=(
+                PresetSnapshot.from_dict(data.get("preset_snapshot"))
+                if data.get("preset_snapshot") is not None
+                else None
+            ),
         )
 
     def to_dict(self) -> dict[str, object]:
@@ -312,4 +370,6 @@ class BuildMetadata:
         }
         if self.lab_compat is not None:
             data["lab_compat"] = self.lab_compat.to_dict()
+        if self.preset_snapshot is not None:
+            data["preset_snapshot"] = self.preset_snapshot.to_dict()
         return data

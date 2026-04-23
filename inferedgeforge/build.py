@@ -22,6 +22,7 @@ from inferedgeforge.schemas import (
     SourceModelInfo,
     ValidationHandoff,
 )
+from inferedgeforge.schemas.metadata import PresetSnapshot
 
 
 def _utc_timestamp() -> str:
@@ -96,6 +97,7 @@ def create_build_metadata(
     handoff_consumer: str = "InferEdgeLab",
     source_sha256: str | None = None,
     artifact_sha256s: list[str | None] | None = None,
+    preset_snapshot: PresetSnapshot | None = None,
     preset_metadata: dict[str, object] | None = None,
     preset_build_options: dict[str, object] | None = None,
 ) -> BuildMetadata:
@@ -147,6 +149,7 @@ def create_build_metadata(
         artifacts=artifacts,
         handoff=ValidationHandoff(consumer=handoff_consumer, ready=True),
         lab_compat=lab_compat,
+        preset_snapshot=preset_snapshot,
     )
 
 
@@ -345,26 +348,47 @@ def inspect_build_metadata(metadata: BuildMetadata) -> dict[str, object]:
         "source_model": metadata.source_model.to_dict(),
         "artifacts": [artifact.to_dict() for artifact in metadata.artifacts],
         "handoff": metadata.handoff.to_dict(),
+        "preset_snapshot": (
+            metadata.preset_snapshot.to_dict() if metadata.preset_snapshot is not None else None
+        ),
         "lab_profile_input": lab_profile_input,
         "lab_profile_command": lab_profile_command,
         "run_summary": _load_run_summary_if_present(metadata),
     }
 
 
+def _format_build_options(build_options: dict[str, object]) -> str:
+    return ", ".join(f"{key}={value}" for key, value in sorted(build_options.items()))
+
+
 def format_inspect_summary(metadata: BuildMetadata, run_summary: dict[str, object] | None) -> str:
     artifact_path = metadata.artifacts[0].path if metadata.artifacts else "none"
     artifact_sha256 = metadata.artifacts[0].sha256 if metadata.artifacts else None
+    preset_name = (
+        metadata.preset_snapshot.name if metadata.preset_snapshot is not None else metadata.build.preset_name
+    )
+    preset_build_options = (
+        metadata.preset_snapshot.build_options if metadata.preset_snapshot is not None else {}
+    )
     lines = [
         "Build:",
         f"  build_id: {metadata.build.build_id}",
         f"  backend: {metadata.build.backend}",
         f"  target: {metadata.build.target}",
         f"  Source SHA256: {metadata.source_model.sha256 or 'unknown'}",
-        "Artifact:",
-        f"  path: {artifact_path}",
-        f"  Artifact SHA256: {artifact_sha256 or 'unknown'}",
-        "Run Status:",
+        "Preset:",
+        f"  name: {preset_name}",
     ]
+    if preset_build_options:
+        lines.append(f"  build_options: {_format_build_options(preset_build_options)}")
+    lines.extend(
+        [
+            "Artifact:",
+            f"  path: {artifact_path}",
+            f"  Artifact SHA256: {artifact_sha256 or 'unknown'}",
+            "Run Status:",
+        ]
+    )
 
     if run_summary is None:
         lines.append("  no benchmark run yet")
@@ -428,6 +452,13 @@ def run_build(
         artifact_format=preset.artifact_format,
         source_sha256=source_sha256,
         artifact_sha256s=artifact_sha256s,
+        preset_snapshot=PresetSnapshot(
+            name=preset.name,
+            backend=preset.backend,
+            target=preset.target,
+            build_options=preset.build_options,
+            metadata=preset.metadata,
+        ),
         preset_metadata=preset.metadata,
         preset_build_options=preset.build_options,
     )
