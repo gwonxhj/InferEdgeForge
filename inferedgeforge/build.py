@@ -303,13 +303,55 @@ def run_lab_profile(metadata: BuildMetadata) -> dict[str, object]:
     }
 
 
-def write_run_summary(metadata: BuildMetadata, summary: dict[str, object]) -> Path:
-    artifact_path = Path(metadata.artifacts[0].path)
-    build_dir = artifact_path.parent
-    build_dir.mkdir(parents=True, exist_ok=True)
+def _build_run_context(metadata: BuildMetadata) -> dict[str, object]:
+    preset_name = (
+        metadata.preset_snapshot.name if metadata.preset_snapshot is not None else metadata.build.preset_name
+    )
+    primary_artifact = metadata.artifacts[0] if metadata.artifacts else None
 
-    summary_path = build_dir / "run_summary.json"
-    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    return {
+        "build_id": metadata.build.build_id,
+        "preset_name": preset_name,
+        "backend": metadata.build.backend,
+        "target": metadata.build.target,
+        "source_model": {
+            "path": metadata.source_model.path,
+            "format": metadata.source_model.format,
+            "sha256": metadata.source_model.sha256,
+        },
+        "primary_artifact": (
+            {
+                "path": primary_artifact.path,
+                "format": primary_artifact.format,
+                "role": primary_artifact.role,
+                "sha256": primary_artifact.sha256,
+            }
+            if primary_artifact is not None
+            else None
+        ),
+    }
+
+
+def _enrich_run_summary(
+    metadata: BuildMetadata,
+    summary: dict[str, object],
+    summary_path: Path,
+) -> dict[str, object]:
+    payload = dict(summary)
+    payload.update(_build_run_context(metadata))
+    payload["summary_file_path"] = str(summary_path)
+    payload.setdefault("status", "completed")
+    return payload
+
+
+def write_run_summary(metadata: BuildMetadata, summary: dict[str, object]) -> Path:
+    summary_path = _find_run_summary_path(metadata)
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+
+    payload = _enrich_run_summary(metadata, summary, summary_path)
+    summary.clear()
+    summary.update(payload)
+    summary_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return summary_path
 
 

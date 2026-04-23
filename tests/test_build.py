@@ -499,12 +499,14 @@ def test_inspect_build_metadata_includes_run_summary_when_present(tmp_path) -> N
         source_model=SourceModelInfo(
             path="models/test.onnx",
             format="onnx",
+            sha256="source-sha",
         ),
         artifacts=[
             ArtifactRecord(
                 path=str(build_dir / "model.engine"),
                 format="engine",
                 role="deployment_model",
+                sha256="artifact-sha",
             )
         ],
         handoff=ValidationHandoff(consumer="InferEdgeLab", ready=True),
@@ -659,12 +661,14 @@ def test_write_run_summary_persists_json_in_build_directory(tmp_path) -> None:
         source_model=SourceModelInfo(
             path="models/test.onnx",
             format="onnx",
+            sha256="source-sha",
         ),
         artifacts=[
             ArtifactRecord(
                 path=str(build_dir / "model.engine"),
                 format="engine",
                 role="deployment_model",
+                sha256="artifact-sha",
             )
         ],
         handoff=ValidationHandoff(consumer="InferEdgeLab", ready=True),
@@ -695,6 +699,18 @@ def test_write_run_summary_persists_json_in_build_directory(tmp_path) -> None:
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["command"] == "python -m inferedgelab.cli profile"
     assert payload["structured_result_path"] == "results/test.json"
+    assert payload["build_id"] == "build-001"
+    assert payload["preset_name"] == "tensorrt/jetson_fp16"
+    assert payload["backend"] == "tensorrt"
+    assert payload["target"] == "jetson"
+    assert payload["source_model"]["path"] == "models/test.onnx"
+    assert payload["source_model"]["sha256"] == "source-sha"
+    assert payload["primary_artifact"]["path"] == str(build_dir / "model.engine")
+    assert payload["primary_artifact"]["sha256"] == "artifact-sha"
+    assert payload["summary_file_path"] == str(summary_path)
+    assert payload["status"] == "completed"
+    assert summary["build_id"] == "build-001"
+    assert summary["primary_artifact"]["sha256"] == "artifact-sha"
 
 
 def test_run_build_propagates_shape_hints_into_lab_compat(tmp_path) -> None:

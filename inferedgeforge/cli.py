@@ -78,16 +78,8 @@ def _cmd_inspect_build(args: argparse.Namespace) -> int:
 def _cmd_run_benchmark(args: argparse.Namespace) -> int:
     metadata = read_build_metadata(args.metadata_path)
     result = run_lab_profile(metadata)
-    summary_path = write_run_summary(metadata, result)
-    summary = {
-        "command": result["command"],
-        "returncode": result["returncode"],
-        "raw_report_path": result["raw_report_path"],
-        "structured_result_path": result["structured_result_path"],
-        "summary_file_path": str(summary_path),
-        "status": "completed",
-    }
-    print(json.dumps(summary, indent=2))
+    write_run_summary(metadata, result)
+    print(json.dumps(result, indent=2))
     return int(result["returncode"])
 
 

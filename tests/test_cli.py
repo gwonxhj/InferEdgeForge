@@ -179,7 +179,7 @@ def test_run_benchmark_executes_command(tmp_path, monkeypatch, capsys) -> None:
 
     monkeypatch.setattr("subprocess.run", fake_run)
 
-    run_build(
+    metadata = run_build(
         model_path=model_path,
         preset_id="tensorrt/jetson_fp16",
         output_dir=output_dir,
@@ -194,12 +194,21 @@ def test_run_benchmark_executes_command(tmp_path, monkeypatch, capsys) -> None:
     assert exit_code == 0
     assert "OK" in captured.out
     lines = captured.out.strip().splitlines()
-    summary_start = len(lines) - 1 - lines[::-1].index("{")
+    summary_start = lines.index("{")
     summary = json.loads("\n".join(lines[summary_start:]))
     assert summary["structured_result_path"] == "results/test.json"
     assert summary["summary_file_path"].endswith("builds/model__jetson__tensorrt/run_summary.json")
     assert Path(summary["summary_file_path"]).exists()
     assert summary["status"] == "completed"
+    assert summary["build_id"] == metadata.build.build_id
+    assert summary["preset_name"] == "tensorrt/jetson_fp16"
+    assert summary["backend"] == "tensorrt"
+    assert summary["target"] == "jetson"
+    assert summary["source_model"]["sha256"] == hashlib.sha256(b"dummy").hexdigest()
+    assert summary["primary_artifact"]["sha256"] == metadata.artifacts[0].sha256
+    persisted_summary = json.loads(Path(summary["summary_file_path"]).read_text(encoding="utf-8"))
+    assert persisted_summary["build_id"] == summary["build_id"]
+    assert persisted_summary["primary_artifact"]["sha256"] == summary["primary_artifact"]["sha256"]
 
 
 def test_show_lab_profile_input_prints_json(tmp_path, capsys, monkeypatch) -> None:
