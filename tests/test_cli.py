@@ -5,7 +5,7 @@ import sys
 import types
 from pathlib import Path
 
-from inferedgeforge.build import run_build
+from inferedgeforge.build import run_build, write_run_summary
 from inferedgeforge.cli import build_parser, main
 
 
@@ -356,6 +356,41 @@ def test_inspect_build_prints_json(tmp_path, capsys, monkeypatch) -> None:
     assert payload["build"]["backend"] == "rknn"
     assert payload["lab_profile_input"]["engine"] == "rknn"
     assert "python -m inferedgelab.cli profile" in payload["lab_profile_command"]
+    assert payload["run_summary"] is None
+
+
+def test_inspect_build_includes_run_summary_when_present(tmp_path, capsys, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "model.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    summary_path = write_run_summary(
+        metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "structured_result_path": "results/test.json",
+            "summary_file_path": str(output_dir / "model__jetson__tensorrt" / "run_summary.json"),
+            "status": "completed",
+        },
+    )
+    metadata_path = output_dir / "model__jetson__tensorrt" / "metadata.json"
+
+    exit_code = main(["inspect-build", str(metadata_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    payload = json.loads(captured.out)
+    assert payload["run_summary"]["command"] == "python -m inferedgelab.cli profile"
+    assert payload["run_summary"]["structured_result_path"] == "results/test.json"
+    assert payload["run_summary"]["summary_file_path"] == str(summary_path)
 
 
 def test_inspect_build_without_lab_compat_prints_null_lab_fields(tmp_path, capsys) -> None:
@@ -398,3 +433,4 @@ def test_inspect_build_without_lab_compat_prints_null_lab_fields(tmp_path, capsy
     payload = json.loads(captured.out)
     assert payload["lab_profile_input"] is None
     assert payload["lab_profile_command"] is None
+    assert payload["run_summary"] is None

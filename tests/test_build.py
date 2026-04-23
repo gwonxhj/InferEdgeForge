@@ -10,7 +10,10 @@ import pytest
 from inferedgeforge.build import (
     _extract_saved_report_path,
     _extract_structured_result_path,
+    _find_run_summary_path,
+    _load_run_summary_if_present,
     create_build_plan,
+    inspect_build_metadata,
     run_build,
     run_lab_profile,
     to_lab_profile_command,
@@ -353,6 +356,7 @@ def test_inspect_build_metadata_includes_lab_handoff_details(tmp_path, monkeypat
     assert payload["handoff"]["consumer"] == "InferEdgeLab"
     assert payload["lab_profile_input"]["engine"] == "rknn"
     assert "python -m inferedgelab.cli profile" in payload["lab_profile_command"]
+    assert payload["run_summary"] is None
 
 
 def test_inspect_build_metadata_without_lab_compat_sets_null_fields() -> None:
@@ -385,6 +389,87 @@ def test_inspect_build_metadata_without_lab_compat_sets_null_fields() -> None:
 
     assert payload["lab_profile_input"] is None
     assert payload["lab_profile_command"] is None
+    assert payload["run_summary"] is None
+
+
+def test_load_run_summary_if_present_returns_none_when_missing(tmp_path) -> None:
+    metadata = BuildMetadata(
+        schema_version="0.1.0",
+        build=BuildInfo(
+            build_id="build-001",
+            timestamp="2026-04-23T12:00:00Z",
+            preset_name="tensorrt/jetson_fp16",
+            backend="tensorrt",
+            target="jetson",
+        ),
+        source_model=SourceModelInfo(
+            path="models/test.onnx",
+            format="onnx",
+        ),
+        artifacts=[
+            ArtifactRecord(
+                path=str(tmp_path / "builds" / "test__jetson__tensorrt" / "model.engine"),
+                format="engine",
+                role="deployment_model",
+            )
+        ],
+        handoff=ValidationHandoff(consumer="InferEdgeLab", ready=True),
+    )
+
+    assert _find_run_summary_path(metadata) == (
+        tmp_path / "builds" / "test__jetson__tensorrt" / "run_summary.json"
+    )
+    assert _load_run_summary_if_present(metadata) is None
+
+
+def test_inspect_build_metadata_includes_run_summary_when_present(tmp_path) -> None:
+    build_dir = tmp_path / "builds" / "test__jetson__tensorrt"
+    summary_path = build_dir / "run_summary.json"
+    summary_path.parent.mkdir(parents=True)
+    summary_path.write_text(
+        json.dumps(
+            {
+                "command": "python -m inferedgelab.cli profile",
+                "returncode": 0,
+                "structured_result_path": "results/test.json",
+                "summary_file_path": str(summary_path),
+                "status": "completed",
+            }
+        ),
+        encoding="utf-8",
+    )
+    metadata = BuildMetadata(
+        schema_version="0.1.0",
+        build=BuildInfo(
+            build_id="build-001",
+            timestamp="2026-04-23T12:00:00Z",
+            preset_name="tensorrt/jetson_fp16",
+            backend="tensorrt",
+            target="jetson",
+        ),
+        source_model=SourceModelInfo(
+            path="models/test.onnx",
+            format="onnx",
+        ),
+        artifacts=[
+            ArtifactRecord(
+                path=str(build_dir / "model.engine"),
+                format="engine",
+                role="deployment_model",
+            )
+        ],
+        handoff=ValidationHandoff(consumer="InferEdgeLab", ready=True),
+    )
+
+    payload = inspect_build_metadata(metadata)
+
+    assert payload["run_summary"] == {
+        "command": "python -m inferedgelab.cli profile",
+        "returncode": 0,
+        "structured_result_path": "results/test.json",
+        "summary_file_path": str(summary_path),
+        "status": "completed",
+    }
 
 
 def test_run_lab_profile_failure_raises(monkeypatch) -> None:
