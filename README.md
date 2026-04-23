@@ -120,11 +120,25 @@ inferedgeforge build \
   --output ./artifacts
 ```
 
+Use `build --dry-run` to preview the build plan without executing the backend builder.
+
+```bash
+python -m inferedgeforge.cli build \
+  --model models/test.onnx \
+  --preset tensorrt/jetson_fp16 \
+  --output builds \
+  --dry-run
+```
+
+The output is JSON-only and includes a predictable artifact/output preview plus an InferEdgeLab handoff preview.
+
 Additional read-only commands such as `list-presets` and `show-preset` are planned to support preset discovery before builds are executed.
 
 ## Installation and Execution
 
 New here? See [docs/quickstart.md](docs/quickstart.md) for a practical end-to-end walkthrough covering editable install, simple test model creation, build execution, output inspection, and InferEdgeLab handoff.
+
+See [examples/README.md](examples/README.md) for minimal local build flow, metadata inspection, and InferEdgeLab handoff-oriented usage patterns.
 
 Use an editable install during development:
 
