@@ -207,6 +207,87 @@ def write_manifest_file(metadata: BuildMetadata, path: str | Path) -> Path:
     return manifest_path
 
 
+def load_manifest(path: str | Path) -> dict[str, object]:
+    manifest_path = Path(path)
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"Build manifest file not found: {manifest_path}")
+
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Build manifest file is not valid JSON: {manifest_path}") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError(f"Build manifest file must contain a JSON object: {manifest_path}")
+    return payload
+
+
+def _manifest_section(payload: dict[str, object], name: str) -> dict[str, object]:
+    value = payload.get(name)
+    if not isinstance(value, dict):
+        raise ValueError(f"manifest is missing {name} required for rebuild")
+    return value
+
+
+def _manifest_string(section: dict[str, object], key: str, label: str) -> str:
+    value = section.get(key)
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"manifest is missing {label} required for rebuild")
+    return value
+
+
+def resolve_rebuild_inputs(
+    manifest_path: str | Path,
+    output_dir: str | Path | None = None,
+) -> dict[str, object]:
+    manifest_file = Path(manifest_path)
+    payload = load_manifest(manifest_file)
+    build = _manifest_section(payload, "build")
+    source_model = _manifest_section(payload, "source_model")
+
+    preset_name = _manifest_string(build, "preset_name", "preset_name")
+    model_path = Path(_manifest_string(source_model, "path", "source model path"))
+    if not model_path.is_file():
+        raise FileNotFoundError(
+            "Source model file from manifest does not exist: "
+            f"{model_path}. Ensure the source model path from manifest exists in this environment."
+        )
+
+    if output_dir is not None:
+        output_root = Path(output_dir)
+    else:
+        build_dir = manifest_file.parent
+        output_root = build_dir.parent
+        if output_root == build_dir:
+            raise ValueError(
+                "Could not infer output root from manifest path; "
+                "provide --output to choose a rebuild destination."
+            )
+
+    return {
+        "model_path": model_path,
+        "preset_name": preset_name,
+        "backend": build.get("backend") if isinstance(build.get("backend"), str) else None,
+        "target": build.get("target") if isinstance(build.get("target"), str) else None,
+        "output_dir": output_root,
+        "manifest_path": manifest_file,
+    }
+
+
+def rebuild_from_manifest(
+    manifest_path: str | Path,
+    output_dir: str | Path | None = None,
+    presets_root: str | Path = "presets",
+) -> BuildMetadata:
+    inputs = resolve_rebuild_inputs(manifest_path, output_dir=output_dir)
+    return run_build(
+        model_path=inputs["model_path"],
+        preset_id=str(inputs["preset_name"]),
+        output_dir=inputs["output_dir"],
+        presets_root=presets_root,
+    )
+
+
 def _preview_build_dir(model_path: Path, target: str, backend: str) -> Path:
     return Path("builds") / f"{model_path.stem}__{target}__{backend}"
 

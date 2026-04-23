@@ -392,6 +392,95 @@ def test_build_parser_constructs() -> None:
     assert parser.prog == "inferedgeforge"
 
 
+def test_rebuild_from_manifest_succeeds(tmp_path, capsys) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "models" / "test.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    manifest_path = output_dir / "test__jetson__tensorrt" / "manifest.json"
+
+    exit_code = main(["rebuild-from-manifest", str(manifest_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Rebuild completed" in captured.out
+    assert f"Manifest : {manifest_path}" in captured.out
+    assert "Preset   : tensorrt/jetson_fp16" in captured.out
+    assert f"Model    : {model_path}" in captured.out
+    assert f"Output   : {output_dir}" in captured.out
+    assert (output_dir / "test__jetson__tensorrt" / "metadata.json").exists()
+    assert (output_dir / "test__jetson__tensorrt" / "manifest.json").exists()
+
+
+def test_rebuild_from_manifest_requires_preset_name(tmp_path, capsys) -> None:
+    model_path = tmp_path / "models" / "test.onnx"
+    manifest_path = tmp_path / "builds" / "test__jetson__tensorrt" / "manifest.json"
+    model_path.parent.mkdir(parents=True)
+    manifest_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "build": {
+                    "backend": "tensorrt",
+                    "target": "jetson",
+                },
+                "source_model": {
+                    "path": str(model_path),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["rebuild-from-manifest", str(manifest_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "manifest is missing preset_name required for rebuild" in captured.err
+
+
+def test_rebuild_from_manifest_uses_output_override(tmp_path, capsys) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "models" / "test.onnx"
+    output_dir = tmp_path / "builds"
+    rebuild_output_dir = tmp_path / "rebuilt"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    manifest_path = output_dir / "test__jetson__tensorrt" / "manifest.json"
+
+    exit_code = main(
+        [
+            "rebuild-from-manifest",
+            str(manifest_path),
+            "--output",
+            str(rebuild_output_dir),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"Output   : {rebuild_output_dir}" in captured.out
+    assert (rebuild_output_dir / "test__jetson__tensorrt" / "metadata.json").exists()
+    assert (rebuild_output_dir / "test__jetson__tensorrt" / "manifest.json").exists()
+
+
 def test_build_dry_run_prints_json_without_creating_output_dir(tmp_path, capsys) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "resnet50.onnx"

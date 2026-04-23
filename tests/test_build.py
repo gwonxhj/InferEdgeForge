@@ -16,6 +16,7 @@ from inferedgeforge.build import (
     build_manifest_from_metadata,
     create_build_plan,
     inspect_build_metadata,
+    resolve_rebuild_inputs,
     run_build,
     run_lab_profile,
     to_lab_profile_command,
@@ -145,6 +146,28 @@ def test_build_manifest_from_metadata_uses_existing_metadata_values(tmp_path, mo
     assert manifest["source_model"]["sha256"] == metadata.source_model.sha256
     assert manifest["artifact"]["path"] == metadata.artifacts[0].path
     assert manifest["artifact"]["sha256"] == metadata.artifacts[0].sha256
+
+
+def test_resolve_rebuild_inputs_uses_manifest_values(tmp_path) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "classifier.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+
+    manifest_path = output_dir / "classifier__jetson__tensorrt" / "manifest.json"
+    inputs = resolve_rebuild_inputs(manifest_path)
+
+    assert inputs["model_path"] == model_path
+    assert inputs["preset_name"] == "tensorrt/jetson_fp16"
+    assert inputs["output_dir"] == output_dir
+    assert inputs["manifest_path"] == manifest_path
 
 
 def test_create_build_plan_returns_expected_preview(tmp_path) -> None:
