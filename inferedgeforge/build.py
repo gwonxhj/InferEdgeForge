@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 import shlex
 import subprocess
 
@@ -211,7 +212,21 @@ def to_lab_profile_command(metadata: BuildMetadata) -> str:
     return " ".join(parts)
 
 
-def run_lab_profile(metadata: BuildMetadata) -> int:
+def _extract_saved_report_path(stdout: str) -> str | None:
+    match = re.search(r"^Saved:\s+(.+)$", stdout, flags=re.MULTILINE)
+    if match is None:
+        return None
+    return match.group(1).strip()
+
+
+def _extract_structured_result_path(stdout: str) -> str | None:
+    match = re.search(r"^Saved structured result:\s+(.+)$", stdout, flags=re.MULTILINE)
+    if match is None:
+        return None
+    return match.group(1).strip()
+
+
+def run_lab_profile(metadata: BuildMetadata) -> dict[str, object]:
     command = to_lab_profile_command(metadata)
 
     result = subprocess.run(
@@ -227,7 +242,14 @@ def run_lab_profile(metadata: BuildMetadata) -> int:
         print(result.stderr)
         raise RuntimeError("InferEdgeLab profile execution failed.")
 
-    return result.returncode
+    return {
+        "command": command,
+        "returncode": result.returncode,
+        "raw_report_path": _extract_saved_report_path(result.stdout),
+        "structured_result_path": _extract_structured_result_path(result.stdout),
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+    }
 
 
 def inspect_build_metadata(metadata: BuildMetadata) -> dict[str, object]:
