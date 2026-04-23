@@ -5,11 +5,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import hashlib
 import json
+import platform
 from pathlib import Path
 import re
 import shlex
 import subprocess
 
+from inferedgeforge import __version__
 from inferedgeforge.builders import BuildRequest, get_builder
 from inferedgeforge.metadata import write_build_metadata
 from inferedgeforge.presets import load_preset_by_id, validate_preset_for_build
@@ -151,6 +153,58 @@ def create_build_metadata(
         lab_compat=lab_compat,
         preset_snapshot=preset_snapshot,
     )
+
+
+def _without_none(value: object) -> object:
+    if isinstance(value, dict):
+        return {
+            key: _without_none(item)
+            for key, item in value.items()
+            if item is not None
+        }
+    if isinstance(value, list):
+        return [_without_none(item) for item in value]
+    return value
+
+
+def build_manifest_from_metadata(metadata: BuildMetadata) -> dict[str, object]:
+    artifact = metadata.artifacts[0] if metadata.artifacts else None
+    manifest = {
+        "build": {
+            "build_id": metadata.build.build_id,
+            "timestamp": metadata.build.timestamp,
+            "preset_name": metadata.build.preset_name,
+            "backend": metadata.build.backend,
+            "target": metadata.build.target,
+        },
+        "source_model": {
+            "path": metadata.source_model.path,
+            "format": metadata.source_model.format,
+            "sha256": metadata.source_model.sha256,
+        },
+        "artifact": artifact.to_dict() if artifact is not None else None,
+        "preset_snapshot": (
+            metadata.preset_snapshot.to_dict() if metadata.preset_snapshot is not None else None
+        ),
+        "tool": {
+            "inferedgeforge_version": __version__,
+            "python_version": platform.python_version(),
+        },
+    }
+    cleaned = _without_none(manifest)
+    if not isinstance(cleaned, dict):
+        raise TypeError("Build manifest must be a JSON object.")
+    return cleaned
+
+
+def write_manifest_file(metadata: BuildMetadata, path: str | Path) -> Path:
+    manifest_path = Path(path)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_text(
+        json.dumps(build_manifest_from_metadata(metadata), indent=2),
+        encoding="utf-8",
+    )
+    return manifest_path
 
 
 def _preview_build_dir(model_path: Path, target: str, backend: str) -> Path:
@@ -894,4 +948,5 @@ def run_build(
         preset_build_options=preset.build_options,
     )
     write_build_metadata(metadata, build_dir / "metadata.json")
+    write_manifest_file(metadata, build_dir / "manifest.json")
     return metadata

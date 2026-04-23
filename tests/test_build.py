@@ -13,6 +13,7 @@ from inferedgeforge.build import (
     _extract_structured_result_path,
     _find_run_summary_path,
     _load_run_summary_if_present,
+    build_manifest_from_metadata,
     create_build_plan,
     inspect_build_metadata,
     run_build,
@@ -105,11 +106,45 @@ def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
     assert metadata.lab_compat.runtime.engine_path == str(build_dir / "model.rknn")
     assert metadata.lab_compat.runtime.runtime_artifact_path == str(build_dir / "model.rknn")
     assert (build_dir / "metadata.json").exists()
+    assert (build_dir / "manifest.json").exists()
     assert (build_dir / "model.rknn").exists()
     persisted_metadata = read_build_metadata(build_dir / "metadata.json")
     assert persisted_metadata.artifacts[0].sha256 == metadata.artifacts[0].sha256
     assert persisted_metadata.preset_snapshot is not None
     assert persisted_metadata.preset_snapshot.to_dict() == metadata.preset_snapshot.to_dict()
+
+    manifest = json.loads((build_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["build"]["preset_name"] == "rknn/rk3588_fp16"
+    assert manifest["build"]["backend"] == "rknn"
+    assert manifest["build"]["target"] == "rk3588"
+    assert manifest["source_model"]["path"] == str(model_path)
+    assert manifest["source_model"]["sha256"] == expected_sha256
+    assert manifest["artifact"]["path"] == str(build_dir / "model.rknn")
+    assert manifest["artifact"]["sha256"] == hashlib.sha256(b"fake rknn artifact").hexdigest()
+    assert manifest["preset_snapshot"] == metadata.preset_snapshot.to_dict()
+    assert "python_version" in manifest["tool"]
+
+
+def test_build_manifest_from_metadata_uses_existing_metadata_values(tmp_path, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "classifier.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+
+    manifest = build_manifest_from_metadata(metadata)
+
+    assert manifest["build"]["preset_name"] == metadata.build.preset_name
+    assert manifest["source_model"]["path"] == metadata.source_model.path
+    assert manifest["source_model"]["sha256"] == metadata.source_model.sha256
+    assert manifest["artifact"]["path"] == metadata.artifacts[0].path
+    assert manifest["artifact"]["sha256"] == metadata.artifacts[0].sha256
 
 
 def test_create_build_plan_returns_expected_preview(tmp_path) -> None:
