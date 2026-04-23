@@ -15,6 +15,7 @@ from inferedgeforge.build import (
     run_lab_profile,
     to_lab_profile_command,
     to_lab_profile_input,
+    write_run_summary,
 )
 from inferedgeforge.cli import main
 from inferedgeforge.schemas import (
@@ -508,6 +509,58 @@ def test_run_lab_profile_success_returns_execution_summary(monkeypatch) -> None:
     assert payload["structured_result_path"] == "results/test.json"
     assert "Saved: reports/test.json" in str(payload["stdout"])
     assert payload["stderr"] == ""
+
+
+def test_write_run_summary_persists_json_in_build_directory(tmp_path) -> None:
+    build_dir = tmp_path / "builds" / "test__jetson__tensorrt"
+    metadata = BuildMetadata(
+        schema_version="0.1.0",
+        build=BuildInfo(
+            build_id="build-001",
+            timestamp="2026-04-23T12:00:00Z",
+            preset_name="tensorrt/jetson_fp16",
+            backend="tensorrt",
+            target="jetson",
+        ),
+        source_model=SourceModelInfo(
+            path="models/test.onnx",
+            format="onnx",
+        ),
+        artifacts=[
+            ArtifactRecord(
+                path=str(build_dir / "model.engine"),
+                format="engine",
+                role="deployment_model",
+            )
+        ],
+        handoff=ValidationHandoff(consumer="InferEdgeLab", ready=True),
+        lab_compat=LabCompatibility(
+            profile_ready=True,
+            runtime=LabRuntimeMapping(
+                engine="tensorrt",
+                device="jetson",
+                precision="fp16",
+                engine_path=str(build_dir / "model.engine"),
+                runtime_artifact_path=str(build_dir / "model.engine"),
+            ),
+        ),
+    )
+    summary = {
+        "command": "python -m inferedgelab.cli profile",
+        "returncode": 0,
+        "raw_report_path": "reports/test.json",
+        "structured_result_path": "results/test.json",
+        "stdout": "Saved structured result: results/test.json",
+        "stderr": "",
+    }
+
+    summary_path = write_run_summary(metadata, summary)
+
+    assert summary_path == build_dir / "run_summary.json"
+    assert summary_path.exists()
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert payload["command"] == "python -m inferedgelab.cli profile"
+    assert payload["structured_result_path"] == "results/test.json"
 
 
 def test_run_build_propagates_shape_hints_into_lab_compat(tmp_path) -> None:

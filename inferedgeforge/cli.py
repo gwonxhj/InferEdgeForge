@@ -15,6 +15,7 @@ from inferedgeforge.build import (
     run_build,
     to_lab_profile_command,
     to_lab_profile_input,
+    write_run_summary,
 )
 from inferedgeforge.metadata import read_build_metadata
 from inferedgeforge.presets import load_preset_by_id
@@ -73,11 +74,13 @@ def _cmd_inspect_build(args: argparse.Namespace) -> int:
 def _cmd_run_benchmark(args: argparse.Namespace) -> int:
     metadata = read_build_metadata(args.metadata_path)
     result = run_lab_profile(metadata)
+    summary_path = write_run_summary(metadata, result)
     summary = {
         "command": result["command"],
         "returncode": result["returncode"],
         "raw_report_path": result["raw_report_path"],
         "structured_result_path": result["structured_result_path"],
+        "summary_file_path": str(summary_path),
         "status": "completed",
     }
     print(json.dumps(summary, indent=2))
