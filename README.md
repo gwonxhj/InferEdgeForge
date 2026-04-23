@@ -62,12 +62,26 @@ Representative command shape:
 inferedgeforge build \
   --model ./models/resnet50.onnx \
   --preset rknn/rk3588_fp16 \
-  --target rk3588 \
-  --backend rknn \
   --output ./artifacts
 ```
 
 Additional read-only commands such as `list-presets` and `show-preset` are planned to support preset discovery before builds are executed.
+
+## Installation and Execution
+
+Use an editable install during development:
+
+```bash
+python -m pip install -e .
+```
+
+If you do not want to install the console script yet, you can run the CLI module directly:
+
+```bash
+python -m inferedgeforge.cli --help
+```
+
+Backend-specific toolchains are still environment-dependent. For example, RKNN builds require a compatible Linux environment with the appropriate RKNN toolkit installed. The project remains installable even when those backend toolchains are not available.
 
 ## Initial Scope (MVP)
 
