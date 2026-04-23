@@ -455,6 +455,102 @@ def format_build_list(groups: dict[str, list[BuildMetadata]]) -> str:
     return "\n".join(lines)
 
 
+def _is_compare_ready(metadata: BuildMetadata) -> bool:
+    return bool(metadata.artifacts and _find_run_summary_path(metadata).is_file())
+
+
+def _runtime_value(metadata: BuildMetadata, field_name: str) -> str | None:
+    if metadata.lab_compat is None:
+        return None
+    value = getattr(metadata.lab_compat.runtime, field_name)
+    return str(value) if value is not None else None
+
+
+def _format_compare_candidate(
+    metadata: BuildMetadata,
+    index: int,
+    *,
+    ready: bool,
+) -> list[str]:
+    lines = [
+        f"[{index}] {metadata.build.preset_name}",
+        f"    artifact : {_primary_artifact_path(metadata)}",
+    ]
+    if ready:
+        for label, field_name in (
+            ("engine   ", "engine"),
+            ("device   ", "device"),
+            ("precision", "precision"),
+        ):
+            value = _runtime_value(metadata, field_name)
+            if value is not None:
+                lines.append(f"    {label}: {value}")
+    else:
+        lines.append("    status   : benchmark missing")
+    return lines
+
+
+def format_compare_candidates(groups: dict[str, list[BuildMetadata]]) -> str:
+    if not groups:
+        return "No compare candidates found."
+
+    lines: list[str] = []
+    for source_model in sorted(groups):
+        if lines:
+            lines.append("")
+        builds = sorted(
+            groups[source_model],
+            key=lambda item: (item.build.preset_name, item.build.backend, item.build.target),
+        )
+        ready_builds = [metadata for metadata in builds if _is_compare_ready(metadata)]
+        pending_builds = [metadata for metadata in builds if not _is_compare_ready(metadata)]
+
+        lines.extend(
+            [
+                f"Compare Candidates: {source_model}",
+                "------------------------------------",
+                "Ready",
+            ]
+        )
+        if ready_builds:
+            for index, metadata in enumerate(ready_builds, start=1):
+                lines.extend(_format_compare_candidate(metadata, index, ready=True))
+        else:
+            lines.append("    none")
+
+        lines.append("")
+        lines.append("Pending")
+        pending_start = len(ready_builds) + 1
+        if pending_builds:
+            for offset, metadata in enumerate(pending_builds):
+                lines.extend(
+                    _format_compare_candidate(
+                        metadata,
+                        pending_start + offset,
+                        ready=False,
+                    )
+                )
+        else:
+            lines.append("    none")
+
+        next_action = (
+            "use InferEdgeLab compare on ready variants"
+            if len(ready_builds) >= 2
+            else "benchmark one more variant to enable comparison"
+        )
+        lines.extend(
+            [
+                "",
+                "Summary",
+                f"- ready builds : {len(ready_builds)}",
+                f"- pending builds : {len(pending_builds)}",
+                f"- next action : {next_action}",
+            ]
+        )
+
+    return "\n".join(lines)
+
+
 def _format_build_options(build_options: dict[str, object]) -> str:
     return ", ".join(f"{key}={value}" for key, value in sorted(build_options.items()))
 
