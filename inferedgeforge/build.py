@@ -132,6 +132,27 @@ def create_build_metadata(
     )
 
 
+def _preview_build_dir(model_path: Path, target: str, backend: str) -> Path:
+    return Path("builds") / f"{model_path.stem}__{target}__{backend}"
+
+
+def _preview_artifact_path(
+    model_path: Path,
+    target: str,
+    backend: str,
+    artifact_format: str,
+) -> Path:
+    return _preview_build_dir(model_path, target, backend) / f"model.{artifact_format}"
+
+
+def _preview_metadata_path(model_path: Path, target: str, backend: str) -> Path:
+    return _preview_build_dir(model_path, target, backend) / "metadata.json"
+
+
+def _preview_run_summary_path(model_path: Path, target: str, backend: str) -> Path:
+    return _preview_build_dir(model_path, target, backend) / "run_summary.json"
+
+
 def create_build_plan(
     model_path: str | Path,
     preset_id: str,
@@ -141,11 +162,14 @@ def create_build_plan(
     preset = load_preset_by_id(preset_id, presets_root=presets_root)
     validate_preset_for_build(preset)
 
-    artifact_path = (
-        Path("builds")
-        / f"{source_path.stem}__{preset.target}__{preset.backend}"
-        / f"model.{preset.artifact_format}"
+    artifact_path = _preview_artifact_path(
+        model_path=source_path,
+        target=preset.target,
+        backend=preset.backend,
+        artifact_format=preset.artifact_format,
     )
+    metadata_path = _preview_metadata_path(source_path, preset.target, preset.backend)
+    run_summary_path = _preview_run_summary_path(source_path, preset.target, preset.backend)
     metadata = create_build_metadata(
         model_path=source_path,
         preset_name=preset.name,
@@ -163,7 +187,9 @@ def create_build_plan(
         "backend": preset.backend,
         "target": preset.target,
         "artifact_format": preset.artifact_format,
-        "output_pattern": str(artifact_path),
+        "artifact_path_preview": str(artifact_path),
+        "metadata_path_preview": str(metadata_path),
+        "run_summary_path_preview": str(run_summary_path),
         "lab_profile_preview": to_lab_profile_input(metadata),
     }
 
