@@ -490,6 +490,45 @@ def _format_execution_insight_section(run_summary: dict[str, object] | None) -> 
     ]
 
 
+def _format_compare_readiness_section(run_summary: dict[str, object] | None) -> list[str]:
+    if run_summary is None:
+        return [
+            "Compare Readiness:",
+            "  Status     : pending",
+            "  Reason     : run-benchmark has not been executed yet",
+        ]
+
+    return [
+        "Compare Readiness:",
+        "  Status     : ready",
+        "  Reason     : benchmark result is present for this artifact",
+        "  Workflow   : build another preset variant, then compare results in InferEdgeLab",
+    ]
+
+
+def _format_compare_context_section(metadata: BuildMetadata) -> list[str]:
+    preset_name = (
+        metadata.preset_snapshot.name if metadata.preset_snapshot is not None else metadata.build.preset_name
+    )
+    artifact = metadata.artifacts[0] if metadata.artifacts else None
+    runtime = metadata.lab_compat.runtime if metadata.lab_compat is not None else None
+    rows = [
+        ("Preset     ", preset_name),
+        ("Backend    ", metadata.build.backend),
+        ("Target     ", metadata.build.target),
+        ("Source     ", metadata.source_model.path),
+        ("Artifact   ", artifact.path if artifact is not None else None),
+        ("Engine     ", runtime.engine if runtime is not None else None),
+        ("Device     ", runtime.device if runtime is not None else None),
+        ("Precision  ", runtime.precision if runtime is not None else None),
+    ]
+    lines = ["Compare Context:"]
+    for label, value in rows:
+        if value is not None:
+            lines.append(f"  {label}: {value}")
+    return lines
+
+
 def _format_next_step_section(run_summary: dict[str, object] | None) -> list[str]:
     if run_summary is None:
         return [
@@ -500,8 +539,9 @@ def _format_next_step_section(run_summary: dict[str, object] | None) -> list[str
     return [
         "Next Step:",
         "  ready for comparison in InferEdgeLab",
-        "  Try building with a different preset for comparison.",
-        "  Use InferEdgeLab compare to evaluate trade-offs.",
+        "  Build another preset variant for the same source model.",
+        "  Run benchmark for that artifact as well.",
+        "  Use InferEdgeLab compare or compare-latest to evaluate trade-offs.",
     ]
 
 
@@ -514,6 +554,8 @@ def format_inspect_summary(metadata: BuildMetadata, run_summary: dict[str, objec
     lines.extend(_format_run_status_section(run_summary))
     lines.extend(_format_run_summary_section(run_summary))
     lines.extend(_format_execution_insight_section(run_summary))
+    lines.extend(_format_compare_readiness_section(run_summary))
+    lines.extend(_format_compare_context_section(metadata))
     lines.extend(_format_next_step_section(run_summary))
 
     return "\n".join(lines)

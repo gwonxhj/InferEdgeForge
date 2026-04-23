@@ -399,6 +399,11 @@ def test_inspect_build_summary_output(tmp_path, capsys) -> None:
             "structured_result_path": "results/test.json",
             "summary_file_path": str(output_dir / "model__jetson__tensorrt" / "run_summary.json"),
             "status": "completed",
+            "engine": "tensorrt",
+            "device": "jetson",
+            "precision": "fp16",
+            "mean_ms": 12.34,
+            "p99_ms": 15.67,
         },
     )
     metadata_path = output_dir / "model__jetson__tensorrt" / "metadata.json"
@@ -413,6 +418,10 @@ def test_inspect_build_summary_output(tmp_path, capsys) -> None:
     assert "Artifact:" in captured.out
     assert "Run Status:" in captured.out
     assert "Next Step:" in captured.out
+    assert "Run Summary:" in captured.out
+    assert "Execution Insight:" in captured.out
+    assert "Compare Readiness:" in captured.out
+    assert "Compare Context:" in captured.out
     assert "name: tensorrt/jetson_fp16" in captured.out
     assert "precision=fp16" in captured.out
     assert f"path: {model_path}" in captured.out
@@ -421,7 +430,23 @@ def test_inspect_build_summary_output(tmp_path, capsys) -> None:
     assert "status: completed" in captured.out
     assert "structured_result_path: results/test.json" in captured.out
     assert "summary_file_path:" in captured.out
+    assert "Status     : ready" in captured.out
+    assert "benchmark result is present for this artifact" in captured.out
+    assert "Workflow   : build another preset variant, then compare results in InferEdgeLab" in captured.out
+    assert "Preset     : tensorrt/jetson_fp16" in captured.out
+    assert "Backend    : tensorrt" in captured.out
+    assert "Target     : jetson" in captured.out
+    assert f"Source     : {model_path}" in captured.out
+    assert f"Artifact   : {metadata.artifacts[0].path}" in captured.out
+    assert "Engine     : tensorrt" in captured.out
+    assert "Device     : jetson" in captured.out
+    assert "Precision  : fp16" in captured.out
+    assert "Mean (ms)  : 12.34" in captured.out
+    assert "P99 (ms)   : 15.67" in captured.out
     assert "ready for comparison in InferEdgeLab" in captured.out
+    assert "Build another preset variant for the same source model." in captured.out
+    assert "Run benchmark for that artifact as well." in captured.out
+    assert "Use InferEdgeLab compare or compare-latest to evaluate trade-offs." in captured.out
 
 
 def test_inspect_build_summary_without_run(tmp_path, capsys) -> None:
@@ -449,9 +474,13 @@ def test_inspect_build_summary_without_run(tmp_path, capsys) -> None:
     assert "Artifact:" in captured.out
     assert "Run Status:" in captured.out
     assert "Next Step:" in captured.out
+    assert "Compare Readiness:" in captured.out
+    assert "Compare Context:" in captured.out
     assert f"path: {model_path}" in captured.out
     assert f"sha256: {expected_sha256}" in captured.out
     assert "no benchmark run yet" in captured.out
+    assert "Status     : pending" in captured.out
+    assert "run-benchmark has not been executed yet" in captured.out
     assert "run run-benchmark to generate validation results" in captured.out
 
 
