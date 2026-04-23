@@ -162,6 +162,34 @@ def test_to_lab_profile_input_returns_expected_mapping(tmp_path, monkeypatch) ->
     assert payload["runtime_artifact_path"].endswith("model.rknn")
 
 
+def test_run_build_metadata_still_maps_to_lab_profile_input(tmp_path, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "resnet50.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _install_fake_rknn(monkeypatch, tmp_path)
+
+    metadata = run_build(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+
+    payload = to_lab_profile_input(metadata)
+
+    assert payload == {
+        "engine": "rknn",
+        "device": "rk3588",
+        "precision": "fp16",
+        "engine_path": str(output_dir / "resnet50__rk3588__rknn" / "model.rknn"),
+        "runtime_artifact_path": str(output_dir / "resnet50__rk3588__rknn" / "model.rknn"),
+        "requested_batch": None,
+        "requested_height": None,
+        "requested_width": None,
+    }
+
+
 def test_run_build_propagates_shape_hints_into_lab_compat(tmp_path) -> None:
     model_path = tmp_path / "resnet50.onnx"
     output_dir = tmp_path / "builds"
