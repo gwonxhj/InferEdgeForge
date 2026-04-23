@@ -191,9 +191,11 @@ def test_run_benchmark_executes_command(tmp_path, monkeypatch, capsys) -> None:
     assert exit_code == 0
     assert "OK" in captured.out
     lines = captured.out.strip().splitlines()
-    summary_start = lines.index("{", len(lines) - 7)
+    summary_start = len(lines) - 1 - lines[::-1].index("{")
     summary = json.loads("\n".join(lines[summary_start:]))
     assert summary["structured_result_path"] == "results/test.json"
+    assert summary["summary_file_path"].endswith("builds/model__jetson__tensorrt/run_summary.json")
+    assert Path(summary["summary_file_path"]).exists()
     assert summary["status"] == "completed"
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 import re
 import shlex
@@ -250,6 +251,16 @@ def run_lab_profile(metadata: BuildMetadata) -> dict[str, object]:
         "stdout": result.stdout,
         "stderr": result.stderr,
     }
+
+
+def write_run_summary(metadata: BuildMetadata, summary: dict[str, object]) -> Path:
+    artifact_path = Path(metadata.artifacts[0].path)
+    build_dir = artifact_path.parent
+    build_dir.mkdir(parents=True, exist_ok=True)
+
+    summary_path = build_dir / "run_summary.json"
+    summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    return summary_path
 
 
 def inspect_build_metadata(metadata: BuildMetadata) -> dict[str, object]:
