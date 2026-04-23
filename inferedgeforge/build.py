@@ -174,6 +174,26 @@ def to_lab_profile_command(metadata: BuildMetadata) -> str:
     return " ".join(parts)
 
 
+def inspect_build_metadata(metadata: BuildMetadata) -> dict[str, object]:
+    lab_profile_input: dict[str, object] | None
+    lab_profile_command: str | None
+    try:
+        lab_profile_input = to_lab_profile_input(metadata)
+        lab_profile_command = to_lab_profile_command(metadata)
+    except ValueError:
+        lab_profile_input = None
+        lab_profile_command = None
+
+    return {
+        "build": metadata.build.to_dict(),
+        "source_model": metadata.source_model.to_dict(),
+        "artifacts": [artifact.to_dict() for artifact in metadata.artifacts],
+        "handoff": metadata.handoff.to_dict(),
+        "lab_profile_input": lab_profile_input,
+        "lab_profile_command": lab_profile_command,
+    }
+
+
 def run_build(
     model_path: str | Path,
     preset_id: str,
