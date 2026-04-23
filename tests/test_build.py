@@ -9,6 +9,13 @@ import pytest
 
 from inferedgeforge.build import run_build, to_lab_profile_command, to_lab_profile_input
 from inferedgeforge.cli import main
+from inferedgeforge.schemas import (
+    ArtifactRecord,
+    BuildInfo,
+    BuildMetadata,
+    SourceModelInfo,
+    ValidationHandoff,
+)
 
 
 def _install_fake_rknn(monkeypatch, tmp_path: Path) -> None:
@@ -252,6 +259,64 @@ def test_to_lab_profile_command_includes_shape_hints_when_present(tmp_path) -> N
     assert "--batch 1" in command
     assert "--height 224" in command
     assert "--width 224" in command
+
+
+def test_inspect_build_metadata_includes_lab_handoff_details(tmp_path, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "resnet50.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _install_fake_rknn(monkeypatch, tmp_path)
+
+    from inferedgeforge.build import inspect_build_metadata
+
+    metadata = run_build(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+
+    payload = inspect_build_metadata(metadata)
+
+    assert payload["build"]["backend"] == "rknn"
+    assert payload["source_model"]["format"] == "onnx"
+    assert payload["artifacts"][0]["format"] == "rknn"
+    assert payload["handoff"]["consumer"] == "InferEdgeLab"
+    assert payload["lab_profile_input"]["engine"] == "rknn"
+    assert "python -m inferedgelab.cli profile" in payload["lab_profile_command"]
+
+
+def test_inspect_build_metadata_without_lab_compat_sets_null_fields() -> None:
+    from inferedgeforge.build import inspect_build_metadata
+
+    metadata = BuildMetadata(
+        schema_version="0.1.0",
+        build=BuildInfo(
+            build_id="build-001",
+            timestamp="2026-04-23T12:00:00Z",
+            preset_name="rknn/rk3588_fp16",
+            backend="rknn",
+            target="rk3588",
+        ),
+        source_model=SourceModelInfo(
+            path="models/resnet50.onnx",
+            format="onnx",
+        ),
+        artifacts=[
+            ArtifactRecord(
+                path="artifacts/model.rknn",
+                format="rknn",
+                role="deployment_model",
+            )
+        ],
+        handoff=ValidationHandoff(consumer="InferEdgeLab", ready=True),
+    )
+
+    payload = inspect_build_metadata(metadata)
+
+    assert payload["lab_profile_input"] is None
+    assert payload["lab_profile_command"] is None
 
 
 def test_run_build_propagates_shape_hints_into_lab_compat(tmp_path) -> None:
