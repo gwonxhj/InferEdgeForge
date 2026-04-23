@@ -11,6 +11,7 @@ The current local flow is intentionally small:
 - Inspect the generated metadata.
 - Derive Lab profile input from the build metadata.
 - Derive a runnable Lab profile command for downstream validation.
+- Execute the downstream validation step from handoff-ready metadata.
 
 ### Minimal Local Build Flow
 
@@ -31,7 +32,12 @@ python -m inferedgeforge.cli show-lab-profile-input \
 
 python -m inferedgeforge.cli show-lab-profile-command \
   builds/test__jetson__tensorrt/metadata.json
+
+python -m inferedgeforge.cli run-benchmark \
+  builds/test__jetson__tensorrt/metadata.json
 ```
+
+This final step turns the handoff-ready metadata into an executed downstream validation step.
 
 ## What These Examples Demonstrate
 

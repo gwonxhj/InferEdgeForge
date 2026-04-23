@@ -82,7 +82,16 @@ python -m inferedgeforge.cli inspect-build \
 
 `inspect-build` prints a consolidated summary of build details and handoff-ready information. The dry-run preview is for plan validation only, while the real build produces metadata and artifacts for inspection.
 
-## 6. Handoff to InferEdgeLab
+## 6. Run the Downstream Benchmark
+
+```bash
+python -m inferedgeforge.cli run-benchmark \
+  builds/test__jetson__tensorrt/metadata.json
+```
+
+This executes the InferEdgeLab profile command derived from metadata. It is the execution step after preview, build, and inspection, while Forge still prepares the handoff structure and Lab performs the profiling.
+
+## 7. Handoff to InferEdgeLab
 
 InferEdgeForge does not benchmark runtime performance or score deployment quality. Its role is to prepare structured build outputs and validation-ready handoff information. InferEdgeLab is the downstream tool that performs runtime profiling, comparison, and deployment trade-off analysis.
 
