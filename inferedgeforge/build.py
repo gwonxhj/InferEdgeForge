@@ -263,6 +263,26 @@ def write_run_summary(metadata: BuildMetadata, summary: dict[str, object]) -> Pa
     return summary_path
 
 
+def _find_run_summary_path(metadata: BuildMetadata) -> Path:
+    artifact_path = Path(metadata.artifacts[0].path)
+    return artifact_path.parent / "run_summary.json"
+
+
+def _load_run_summary_if_present(metadata: BuildMetadata) -> dict[str, object] | None:
+    summary_path = _find_run_summary_path(metadata)
+    if not summary_path.is_file():
+        return None
+
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Run summary file is not valid JSON: {summary_path}") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError(f"Run summary file must contain a JSON object: {summary_path}")
+    return payload
+
+
 def inspect_build_metadata(metadata: BuildMetadata) -> dict[str, object]:
     lab_profile_input: dict[str, object] | None
     lab_profile_command: str | None
@@ -280,6 +300,7 @@ def inspect_build_metadata(metadata: BuildMetadata) -> dict[str, object]:
         "handoff": metadata.handoff.to_dict(),
         "lab_profile_input": lab_profile_input,
         "lab_profile_command": lab_profile_command,
+        "run_summary": _load_run_summary_if_present(metadata),
     }
 
 
