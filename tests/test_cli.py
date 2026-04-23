@@ -359,6 +359,7 @@ def test_inspect_build_prints_json(tmp_path, capsys, monkeypatch) -> None:
     payload = json.loads(captured.out)
     assert payload["build"]["backend"] == "rknn"
     assert payload["source_model"]["sha256"] == expected_sha256
+    assert payload["artifacts"][0]["sha256"] == hashlib.sha256(b"fake rknn artifact").hexdigest()
     assert payload["lab_profile_input"]["engine"] == "rknn"
     assert "python -m inferedgelab.cli profile" in payload["lab_profile_command"]
     assert payload["run_summary"] is None
@@ -396,6 +397,7 @@ def test_inspect_build_summary_output(tmp_path, capsys) -> None:
     assert "Build:" in captured.out
     assert "Artifact:" in captured.out
     assert f"Source SHA256: {expected_sha256}" in captured.out
+    assert "Artifact SHA256:" in captured.out
     assert "Run Status:" in captured.out
     assert "status: completed" in captured.out
     assert "structured_result_path: results/test.json" in captured.out
@@ -424,6 +426,7 @@ def test_inspect_build_summary_without_run(tmp_path, capsys) -> None:
     assert "Build:" in captured.out
     assert "Artifact:" in captured.out
     assert f"Source SHA256: {expected_sha256}" in captured.out
+    assert "Artifact SHA256:" in captured.out
     assert "Run Status:" in captured.out
     assert "no benchmark run yet" in captured.out
     assert "run run-benchmark to generate validation results" in captured.out

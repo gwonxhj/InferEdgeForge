@@ -27,11 +27,14 @@ class ArtifactRecord:
     path: str
     format: str
     role: str
+    sha256: str | None = None
 
     def __post_init__(self) -> None:
         self.path = _require_non_empty_string(self.path, "path")
         self.format = _require_non_empty_string(self.format, "format")
         self.role = _require_non_empty_string(self.role, "role")
+        if self.sha256 is not None:
+            self.sha256 = _require_non_empty_string(self.sha256, "artifact.sha256")
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ArtifactRecord":
@@ -42,14 +45,18 @@ class ArtifactRecord:
             path=data.get("path"),
             format=data.get("format"),
             role=data.get("role"),
+            sha256=data.get("sha256"),
         )
 
     def to_dict(self) -> dict[str, str]:
-        return {
+        data = {
             "path": self.path,
             "format": self.format,
             "role": self.role,
         }
+        if self.sha256 is not None:
+            data["sha256"] = self.sha256
+        return data
 
 
 @dataclass(slots=True)
