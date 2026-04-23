@@ -228,6 +228,164 @@ def test_show_compare_candidates_filters_model_and_shows_pending(
     assert "- next action : benchmark one more variant to enable comparison" in captured.out
 
 
+def test_show_compare_command_previews_requested_pair(tmp_path, capsys, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "models" / "test.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _install_fake_rknn(monkeypatch)
+
+    tensorrt_metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    rknn_metadata = run_build(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    write_run_summary(
+        tensorrt_metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "structured_result_path": "results/tensorrt.json",
+            "status": "completed",
+        },
+    )
+    write_run_summary(
+        rknn_metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "structured_result_path": "results/rknn.json",
+            "status": "completed",
+        },
+    )
+
+    exit_code = main(
+        [
+            "show-compare-command",
+            "--dir",
+            str(output_dir),
+            "--model",
+            str(model_path),
+            "--left",
+            "rknn/rk3588_fp16",
+            "--right",
+            "tensorrt/jetson_fp16",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Compare Command Preview" in captured.out
+    assert f"Model       : {model_path}" in captured.out
+    assert "Left Preset : rknn/rk3588_fp16" in captured.out
+    assert "Right Preset: tensorrt/jetson_fp16" in captured.out
+    assert (
+        "python -m inferedgelab.cli compare results/rknn.json results/tensorrt.json"
+        in captured.out
+    )
+    assert "run the compare command in InferEdgeLab" in captured.out
+
+
+def test_show_compare_command_requires_two_ready_builds(tmp_path, capsys, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "models" / "test.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _install_fake_rknn(monkeypatch)
+
+    tensorrt_metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    run_build(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    write_run_summary(
+        tensorrt_metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "structured_result_path": "results/tensorrt.json",
+            "status": "completed",
+        },
+    )
+
+    exit_code = main(["show-compare-command", "--dir", str(output_dir), "--model", str(model_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Status: unavailable" in captured.out
+    assert "fewer than two benchmark-ready builds are available" in captured.out
+    assert "benchmark one more variant to enable comparison" in captured.out
+    assert "python -m inferedgelab.cli compare" not in captured.out
+
+
+def test_show_compare_command_requires_structured_result_paths(
+    tmp_path,
+    capsys,
+    monkeypatch,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "models" / "test.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _install_fake_rknn(monkeypatch)
+
+    tensorrt_metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    rknn_metadata = run_build(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    write_run_summary(
+        tensorrt_metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "structured_result_path": "results/tensorrt.json",
+            "status": "completed",
+        },
+    )
+    write_run_summary(
+        rknn_metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "status": "completed",
+        },
+    )
+
+    exit_code = main(["show-compare-command", "--dir", str(output_dir), "--model", str(model_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Status: unavailable" in captured.out
+    assert "structured_result_path is missing for: rknn/rk3588_fp16" in captured.out
+    assert "rerun benchmark so structured_result_path is persisted" in captured.out
+    assert "python -m inferedgelab.cli compare" not in captured.out
+
+
 def test_build_parser_constructs() -> None:
     parser = build_parser()
 
