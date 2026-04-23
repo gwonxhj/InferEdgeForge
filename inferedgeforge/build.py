@@ -461,14 +461,47 @@ def _format_run_status_section(run_summary: dict[str, object] | None) -> list[st
     return lines
 
 
+def _format_run_summary_section(run_summary: dict[str, object] | None) -> list[str]:
+    if run_summary is None:
+        return []
+
+    rows = [
+        ("Engine     ", run_summary.get("engine")),
+        ("Device     ", run_summary.get("device")),
+        ("Precision  ", run_summary.get("precision")),
+        ("Mean (ms)  ", run_summary.get("mean_ms")),
+        ("P99 (ms)   ", run_summary.get("p99_ms")),
+    ]
+    lines = ["Run Summary:"]
+    for label, value in rows:
+        if value is not None:
+            lines.append(f"  {label}: {value}")
+
+    return lines if len(lines) > 1 else []
+
+
+def _format_execution_insight_section(run_summary: dict[str, object] | None) -> list[str]:
+    if run_summary is None:
+        return []
+
+    return [
+        "Execution Insight:",
+        "  This artifact has been profiled. Use compare or compare-latest in InferEdgeLab to evaluate relative performance.",
+    ]
+
+
 def _format_next_step_section(run_summary: dict[str, object] | None) -> list[str]:
     if run_summary is None:
-        hint = "run run-benchmark to generate validation results"
-    else:
-        hint = "ready for comparison in InferEdgeLab"
+        return [
+            "Next Step:",
+            "  run run-benchmark to generate validation results",
+        ]
+
     return [
         "Next Step:",
-        f"  {hint}",
+        "  ready for comparison in InferEdgeLab",
+        "  Try building with a different preset for comparison.",
+        "  Use InferEdgeLab compare to evaluate trade-offs.",
     ]
 
 
@@ -479,6 +512,8 @@ def format_inspect_summary(metadata: BuildMetadata, run_summary: dict[str, objec
     lines.extend(_format_source_section(metadata))
     lines.extend(_format_artifact_section(metadata))
     lines.extend(_format_run_status_section(run_summary))
+    lines.extend(_format_run_summary_section(run_summary))
+    lines.extend(_format_execution_insight_section(run_summary))
     lines.extend(_format_next_step_section(run_summary))
 
     return "\n".join(lines)
