@@ -330,6 +330,42 @@ def inspect_build_metadata(metadata: BuildMetadata) -> dict[str, object]:
     }
 
 
+def format_inspect_summary(metadata: BuildMetadata, run_summary: dict[str, object] | None) -> str:
+    artifact_path = metadata.artifacts[0].path if metadata.artifacts else "none"
+    lines = [
+        "Build:",
+        f"  build_id: {metadata.build.build_id}",
+        f"  backend: {metadata.build.backend}",
+        f"  target: {metadata.build.target}",
+        "Artifact:",
+        f"  path: {artifact_path}",
+        "Run Status:",
+    ]
+
+    if run_summary is None:
+        lines.append("  no benchmark run yet")
+        lines.extend(
+            [
+                "Next Step:",
+                "  run run-benchmark to generate validation results",
+            ]
+        )
+    else:
+        status = run_summary.get("status", "unknown")
+        lines.append(f"  status: {status}")
+        structured_result_path = run_summary.get("structured_result_path")
+        if structured_result_path:
+            lines.append(f"  structured_result_path: {structured_result_path}")
+        lines.extend(
+            [
+                "Next Step:",
+                "  ready for comparison in InferEdgeLab",
+            ]
+        )
+
+    return "\n".join(lines)
+
+
 def run_build(
     model_path: str | Path,
     preset_id: str,
