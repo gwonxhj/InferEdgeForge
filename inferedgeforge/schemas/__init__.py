@@ -4,6 +4,8 @@ from inferedgeforge.schemas.metadata import (
     ArtifactRecord,
     BuildInfo,
     BuildMetadata,
+    LabCompatibility,
+    LabRuntimeMapping,
     SourceModelInfo,
     ValidationHandoff,
 )
@@ -15,5 +17,7 @@ __all__ = [
     "BuildInfo",
     "SourceModelInfo",
     "ValidationHandoff",
+    "LabRuntimeMapping",
+    "LabCompatibility",
     "BuildMetadata",
 ]

@@ -12,6 +12,14 @@ def _require_non_empty_string(value: Any, field_name: str) -> str:
     return value
 
 
+def _require_positive_int_or_none(value: Any, field_name: str) -> int | None:
+    if value is None:
+        return None
+    if not isinstance(value, int) or value <= 0:
+        raise ValueError(f"Metadata field '{field_name}' must be a positive integer when provided.")
+    return value
+
+
 @dataclass(slots=True)
 class ArtifactRecord:
     """Describes a generated artifact."""
@@ -149,6 +157,96 @@ class ValidationHandoff:
 
 
 @dataclass(slots=True)
+class LabRuntimeMapping:
+    """Lab-oriented runtime mapping derived from Forge metadata."""
+
+    engine: str
+    device: str
+    precision: str
+    engine_path: str
+    runtime_artifact_path: str
+    requested_batch: int | None = None
+    requested_height: int | None = None
+    requested_width: int | None = None
+
+    def __post_init__(self) -> None:
+        self.engine = _require_non_empty_string(self.engine, "lab_compat.runtime.engine")
+        self.device = _require_non_empty_string(self.device, "lab_compat.runtime.device")
+        self.precision = _require_non_empty_string(self.precision, "lab_compat.runtime.precision")
+        self.engine_path = _require_non_empty_string(self.engine_path, "lab_compat.runtime.engine_path")
+        self.runtime_artifact_path = _require_non_empty_string(
+            self.runtime_artifact_path, "lab_compat.runtime.runtime_artifact_path"
+        )
+        self.requested_batch = _require_positive_int_or_none(
+            self.requested_batch, "lab_compat.runtime.requested_batch"
+        )
+        self.requested_height = _require_positive_int_or_none(
+            self.requested_height, "lab_compat.runtime.requested_height"
+        )
+        self.requested_width = _require_positive_int_or_none(
+            self.requested_width, "lab_compat.runtime.requested_width"
+        )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "LabRuntimeMapping":
+        if not isinstance(data, dict):
+            raise ValueError("LabRuntimeMapping data must be a dictionary.")
+
+        return cls(
+            engine=data.get("engine"),
+            device=data.get("device"),
+            precision=data.get("precision"),
+            engine_path=data.get("engine_path"),
+            runtime_artifact_path=data.get("runtime_artifact_path"),
+            requested_batch=data.get("requested_batch"),
+            requested_height=data.get("requested_height"),
+            requested_width=data.get("requested_width"),
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "engine": self.engine,
+            "device": self.device,
+            "precision": self.precision,
+            "engine_path": self.engine_path,
+            "runtime_artifact_path": self.runtime_artifact_path,
+            "requested_batch": self.requested_batch,
+            "requested_height": self.requested_height,
+            "requested_width": self.requested_width,
+        }
+
+
+@dataclass(slots=True)
+class LabCompatibility:
+    """Optional Lab-compatible handoff section."""
+
+    profile_ready: bool
+    runtime: LabRuntimeMapping
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.profile_ready, bool):
+            raise ValueError("Metadata field 'lab_compat.profile_ready' must be a boolean.")
+        if not isinstance(self.runtime, LabRuntimeMapping):
+            raise ValueError("Metadata field 'lab_compat.runtime' must be a LabRuntimeMapping instance.")
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "LabCompatibility":
+        if not isinstance(data, dict):
+            raise ValueError("LabCompatibility data must be a dictionary.")
+
+        return cls(
+            profile_ready=data.get("profile_ready"),
+            runtime=LabRuntimeMapping.from_dict(data.get("runtime")),
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "profile_ready": self.profile_ready,
+            "runtime": self.runtime.to_dict(),
+        }
+
+
+@dataclass(slots=True)
 class BuildMetadata:
     """Structured metadata emitted for a build."""
 
@@ -157,6 +255,7 @@ class BuildMetadata:
     source_model: SourceModelInfo
     artifacts: list[ArtifactRecord]
     handoff: ValidationHandoff
+    lab_compat: LabCompatibility | None = None
 
     def __post_init__(self) -> None:
         self.schema_version = _require_non_empty_string(self.schema_version, "schema_version")
@@ -171,6 +270,8 @@ class BuildMetadata:
             raise ValueError("Metadata field 'artifacts' must contain only ArtifactRecord instances.")
         if not isinstance(self.handoff, ValidationHandoff):
             raise ValueError("Metadata field 'handoff' must be a ValidationHandoff instance.")
+        if self.lab_compat is not None and not isinstance(self.lab_compat, LabCompatibility):
+            raise ValueError("Metadata field 'lab_compat' must be a LabCompatibility instance when provided.")
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "BuildMetadata":
@@ -187,13 +288,21 @@ class BuildMetadata:
             source_model=SourceModelInfo.from_dict(data.get("source_model")),
             artifacts=[ArtifactRecord.from_dict(item) for item in artifacts],
             handoff=ValidationHandoff.from_dict(data.get("handoff")),
+            lab_compat=(
+                LabCompatibility.from_dict(data.get("lab_compat"))
+                if data.get("lab_compat") is not None
+                else None
+            ),
         )
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        data = {
             "schema_version": self.schema_version,
             "build": self.build.to_dict(),
             "source_model": self.source_model.to_dict(),
             "artifacts": [artifact.to_dict() for artifact in self.artifacts],
             "handoff": self.handoff.to_dict(),
         }
+        if self.lab_compat is not None:
+            data["lab_compat"] = self.lab_compat.to_dict()
+        return data
