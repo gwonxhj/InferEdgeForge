@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from inferedgeforge.builders import BuildRequest, TensorRTBuilder
 from inferedgeforge.build import (
     _extract_saved_report_path,
     _extract_structured_result_path,
@@ -25,6 +26,7 @@ from inferedgeforge.build import (
 )
 from inferedgeforge.cli import main
 from inferedgeforge.metadata import read_build_metadata
+from inferedgeforge.presets import load_preset_by_id
 from inferedgeforge.schemas import (
     ArtifactRecord,
     BuildInfo,
@@ -68,6 +70,19 @@ def _install_fake_rknn(monkeypatch, tmp_path: Path) -> None:
     package_module.api = api_module
     monkeypatch.setitem(sys.modules, "rknn", package_module)
     monkeypatch.setitem(sys.modules, "rknn.api", api_module)
+
+
+def _mock_tensorrt_builder_success(monkeypatch):
+    calls = []
+
+    def fake_run_trtexec(self, command):
+        calls.append(command)
+        save_engine_arg = next(part for part in command if part.startswith("--saveEngine="))
+        artifact_path = Path(save_engine_arg.split("=", 1)[1])
+        artifact_path.write_text("fake tensorrt engine", encoding="utf-8")
+
+    monkeypatch.setattr(TensorRTBuilder, "_run_trtexec", fake_run_trtexec)
+    return calls
 
 
 def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
@@ -131,6 +146,7 @@ def test_build_manifest_from_metadata_uses_existing_metadata_values(tmp_path, mo
     model_path = tmp_path / "classifier.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
 
     metadata = run_build(
         model_path=model_path,
@@ -148,11 +164,12 @@ def test_build_manifest_from_metadata_uses_existing_metadata_values(tmp_path, mo
     assert manifest["artifact"]["sha256"] == metadata.artifacts[0].sha256
 
 
-def test_resolve_rebuild_inputs_uses_manifest_values(tmp_path) -> None:
+def test_resolve_rebuild_inputs_uses_manifest_values(tmp_path, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "classifier.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
 
     run_build(
         model_path=model_path,
@@ -251,23 +268,126 @@ def test_create_build_plan_invalid_preset_raises(tmp_path) -> None:
         )
 
 
-def test_run_build_with_tensorrt_preset_creates_engine_artifact(tmp_path) -> None:
+def test_tensorrt_builder_runs_trtexec_and_returns_engine_artifact(tmp_path, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "classifier.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    preset = load_preset_by_id("tensorrt/jetson_fp16", presets_root=repo_root / "presets")
+    calls = []
 
-    metadata = run_build(
-        model_path=model_path,
-        preset_id="tensorrt/jetson_fp16",
-        output_dir=output_dir,
-        presets_root=repo_root / "presets",
+    class DummyResult:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    def fake_run(command, **kwargs):
+        calls.append((command, kwargs))
+        save_engine_arg = next(part for part in command if part.startswith("--saveEngine="))
+        Path(save_engine_arg.split("=", 1)[1]).write_text(
+            "fake tensorrt engine",
+            encoding="utf-8",
+        )
+        return DummyResult()
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    result = TensorRTBuilder().build(
+        BuildRequest(
+            model_path=str(model_path),
+            preset=preset,
+            output_dir=str(output_dir),
+        )
     )
 
-    build_dir = output_dir / "classifier__jetson__tensorrt"
-    assert (build_dir / "model.engine").exists()
-    assert metadata.build.backend == "tensorrt"
-    assert metadata.build.target == "jetson"
+    artifact_path = output_dir / "model.engine"
+    command = calls[0][0]
+    assert command[0] == "trtexec"
+    assert f"--onnx={model_path}" in command
+    assert f"--saveEngine={artifact_path}" in command
+    assert "--fp16" in command
+    assert "--workspace=2048" in command
+    assert calls[0][1] == {"text": True, "capture_output": True}
+    assert artifact_path.exists()
+    assert result.backend == "tensorrt"
+    assert result.target == "jetson"
+    assert result.artifact_paths == [str(artifact_path)]
+
+
+def test_tensorrt_builder_missing_trtexec_raises(tmp_path, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "classifier.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    preset = load_preset_by_id("tensorrt/jetson_fp16", presets_root=repo_root / "presets")
+
+    def fake_run(*args, **kwargs):
+        raise FileNotFoundError("trtexec")
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    with pytest.raises(RuntimeError, match="trtexec is required"):
+        TensorRTBuilder().build(
+            BuildRequest(
+                model_path=str(model_path),
+                preset=preset,
+                output_dir=str(output_dir),
+            )
+        )
+
+
+def test_tensorrt_builder_subprocess_failure_raises(tmp_path, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "classifier.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    preset = load_preset_by_id("tensorrt/jetson_fp16", presets_root=repo_root / "presets")
+
+    class DummyResult:
+        returncode = 1
+        stdout = ""
+        stderr = "builder failed"
+
+    def fake_run(*args, **kwargs):
+        return DummyResult()
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    with pytest.raises(RuntimeError, match="TensorRT engine build failed via trtexec"):
+        TensorRTBuilder().build(
+            BuildRequest(
+                model_path=str(model_path),
+                preset=preset,
+                output_dir=str(output_dir),
+            )
+        )
+
+
+def test_tensorrt_builder_missing_engine_output_raises(tmp_path, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "classifier.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    preset = load_preset_by_id("tensorrt/jetson_fp16", presets_root=repo_root / "presets")
+
+    class DummyResult:
+        returncode = 0
+        stdout = "ok"
+        stderr = ""
+
+    def fake_run(*args, **kwargs):
+        return DummyResult()
+
+    monkeypatch.setattr("subprocess.run", fake_run)
+
+    with pytest.raises(RuntimeError, match="completed without producing model.engine"):
+        TensorRTBuilder().build(
+            BuildRequest(
+                model_path=str(model_path),
+                preset=preset,
+                output_dir=str(output_dir),
+            )
+        )
 
 
 def test_run_build_rknn_toolkit_unavailable_raises(tmp_path, monkeypatch) -> None:
@@ -393,13 +513,14 @@ def test_to_lab_profile_command_returns_expected_command(tmp_path, monkeypatch) 
     assert "--precision fp16" in command
 
 
-def test_to_lab_profile_command_includes_shape_hints_when_present(tmp_path) -> None:
+def test_to_lab_profile_command_includes_shape_hints_when_present(tmp_path, monkeypatch) -> None:
     model_path = tmp_path / "resnet50.onnx"
     output_dir = tmp_path / "builds"
     presets_root = tmp_path / "presets"
     preset_dir = presets_root / "tensorrt"
     preset_dir.mkdir(parents=True)
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
     (preset_dir / "jetson_shape.json").write_text(
         json.dumps(
             {
@@ -771,13 +892,14 @@ def test_write_run_summary_persists_json_in_build_directory(tmp_path) -> None:
     assert summary["primary_artifact"]["sha256"] == "artifact-sha"
 
 
-def test_run_build_propagates_shape_hints_into_lab_compat(tmp_path) -> None:
+def test_run_build_propagates_shape_hints_into_lab_compat(tmp_path, monkeypatch) -> None:
     model_path = tmp_path / "resnet50.onnx"
     output_dir = tmp_path / "builds"
     presets_root = tmp_path / "presets"
     preset_dir = presets_root / "tensorrt"
     preset_dir.mkdir(parents=True)
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
     (preset_dir / "jetson_shape.json").write_text(
         json.dumps(
             {

@@ -36,6 +36,18 @@ def _install_fake_rknn(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "rknn.api", api_module)
 
 
+def _mock_tensorrt_builder_success(monkeypatch) -> None:
+    def fake_run_trtexec(self, command):
+        save_engine_arg = next(part for part in command if part.startswith("--saveEngine="))
+        artifact_path = Path(save_engine_arg.split("=", 1)[1])
+        artifact_path.write_text("fake tensorrt engine", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "inferedgeforge.builders.tensorrt.TensorRTBuilder._run_trtexec",
+        fake_run_trtexec,
+    )
+
+
 def test_list_presets_prints_expected_ids(capsys) -> None:
     repo_root = Path(__file__).resolve().parents[1]
 
@@ -77,6 +89,7 @@ def test_list_builds_groups_builds_by_source_model(tmp_path, capsys, monkeypatch
     model_path.parent.mkdir(parents=True)
     model_path.write_text("dummy onnx content", encoding="utf-8")
     _install_fake_rknn(monkeypatch)
+    _mock_tensorrt_builder_success(monkeypatch)
 
     tensorrt_metadata = run_build(
         model_path=model_path,
@@ -121,6 +134,7 @@ def test_show_compare_candidates_lists_ready_variants(tmp_path, capsys, monkeypa
     model_path.parent.mkdir(parents=True)
     model_path.write_text("dummy onnx content", encoding="utf-8")
     _install_fake_rknn(monkeypatch)
+    _mock_tensorrt_builder_success(monkeypatch)
 
     tensorrt_metadata = run_build(
         model_path=model_path,
@@ -177,6 +191,7 @@ def test_show_compare_candidates_filters_model_and_shows_pending(
     model_path.write_text("dummy onnx content", encoding="utf-8")
     other_model_path.write_text("other dummy onnx content", encoding="utf-8")
     _install_fake_rknn(monkeypatch)
+    _mock_tensorrt_builder_success(monkeypatch)
 
     tensorrt_metadata = run_build(
         model_path=model_path,
@@ -235,6 +250,7 @@ def test_show_compare_command_previews_requested_pair(tmp_path, capsys, monkeypa
     model_path.parent.mkdir(parents=True)
     model_path.write_text("dummy onnx content", encoding="utf-8")
     _install_fake_rknn(monkeypatch)
+    _mock_tensorrt_builder_success(monkeypatch)
 
     tensorrt_metadata = run_build(
         model_path=model_path,
@@ -301,6 +317,7 @@ def test_show_compare_command_requires_two_ready_builds(tmp_path, capsys, monkey
     model_path.parent.mkdir(parents=True)
     model_path.write_text("dummy onnx content", encoding="utf-8")
     _install_fake_rknn(monkeypatch)
+    _mock_tensorrt_builder_success(monkeypatch)
 
     tensorrt_metadata = run_build(
         model_path=model_path,
@@ -345,6 +362,7 @@ def test_show_compare_command_requires_structured_result_paths(
     model_path.parent.mkdir(parents=True)
     model_path.write_text("dummy onnx content", encoding="utf-8")
     _install_fake_rknn(monkeypatch)
+    _mock_tensorrt_builder_success(monkeypatch)
 
     tensorrt_metadata = run_build(
         model_path=model_path,
@@ -392,12 +410,13 @@ def test_build_parser_constructs() -> None:
     assert parser.prog == "inferedgeforge"
 
 
-def test_rebuild_from_manifest_succeeds(tmp_path, capsys) -> None:
+def test_rebuild_from_manifest_succeeds(tmp_path, capsys, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "models" / "test.onnx"
     output_dir = tmp_path / "builds"
     model_path.parent.mkdir(parents=True)
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
 
     run_build(
         model_path=model_path,
@@ -449,13 +468,14 @@ def test_rebuild_from_manifest_requires_preset_name(tmp_path, capsys) -> None:
     assert "manifest is missing preset_name required for rebuild" in captured.err
 
 
-def test_rebuild_from_manifest_uses_output_override(tmp_path, capsys) -> None:
+def test_rebuild_from_manifest_uses_output_override(tmp_path, capsys, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "models" / "test.onnx"
     output_dir = tmp_path / "builds"
     rebuild_output_dir = tmp_path / "rebuilt"
     model_path.parent.mkdir(parents=True)
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
 
     run_build(
         model_path=model_path,
@@ -561,11 +581,46 @@ def test_build_dry_run_with_invalid_preset_returns_error(tmp_path, capsys) -> No
     assert not output_dir.exists()
 
 
+def test_build_tensorrt_builder_error_is_reported(tmp_path, capsys, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "model.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    def fake_run_trtexec(self, command):
+        raise RuntimeError("trtexec is required for TensorRT builds but was not found in PATH")
+
+    monkeypatch.setattr(
+        "inferedgeforge.builders.tensorrt.TensorRTBuilder._run_trtexec",
+        fake_run_trtexec,
+    )
+
+    exit_code = main(
+        [
+            "build",
+            "--model",
+            str(model_path),
+            "--preset",
+            "tensorrt/jetson_fp16",
+            "--output",
+            str(output_dir),
+            "--presets-root",
+            str(repo_root / "presets"),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert captured.out == ""
+    assert "trtexec is required for TensorRT builds" in captured.err
+
+
 def test_run_benchmark_executes_command(tmp_path, monkeypatch, capsys) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "model.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
 
     class DummyResult:
         def __init__(self) -> None:
@@ -783,12 +838,13 @@ def test_inspect_build_prints_json(tmp_path, capsys, monkeypatch) -> None:
     assert payload["run_summary"] is None
 
 
-def test_inspect_build_summary_output(tmp_path, capsys) -> None:
+def test_inspect_build_summary_output(tmp_path, capsys, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "model.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy onnx content", encoding="utf-8")
     expected_sha256 = hashlib.sha256(b"dummy onnx content").hexdigest()
+    _mock_tensorrt_builder_success(monkeypatch)
 
     metadata = run_build(
         model_path=model_path,
@@ -854,12 +910,13 @@ def test_inspect_build_summary_output(tmp_path, capsys) -> None:
     assert "Use InferEdgeLab compare or compare-latest to evaluate trade-offs." in captured.out
 
 
-def test_inspect_build_summary_without_run(tmp_path, capsys) -> None:
+def test_inspect_build_summary_without_run(tmp_path, capsys, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "model.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy onnx content", encoding="utf-8")
     expected_sha256 = hashlib.sha256(b"dummy onnx content").hexdigest()
+    _mock_tensorrt_builder_success(monkeypatch)
 
     run_build(
         model_path=model_path,
@@ -894,6 +951,7 @@ def test_inspect_build_includes_run_summary_when_present(tmp_path, capsys, monke
     model_path = tmp_path / "model.onnx"
     output_dir = tmp_path / "builds"
     model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
 
     metadata = run_build(
         model_path=model_path,
