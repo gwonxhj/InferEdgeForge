@@ -34,6 +34,61 @@ InferEdgeLab is the analysis side. It consumes those artifacts and metadata to e
 
 This separation is deliberate. Build generation and deployment evaluation are related, but they should not be collapsed into one tool.
 
+## Example Output
+
+This section shows representative outputs produced by InferEdgeForge after a build.
+
+### 1. Build Metadata (`metadata.json`)
+
+This is a simplified example of the structured metadata emitted after build.
+
+```json
+{
+  "build": {
+    "preset_name": "tensorrt/jetson_fp16",
+    "backend": "tensorrt",
+    "target": "jetson"
+  },
+  "artifacts": [
+    {
+      "path": "builds/test__jetson__tensorrt/model.engine",
+      "format": "engine"
+    }
+  ],
+  "lab_compat": {
+    "runtime": {
+      "engine": "tensorrt",
+      "device": "jetson",
+      "precision": "fp16"
+    }
+  }
+}
+```
+
+### 2. Lab Profile Input
+
+This is the output of `python -m inferedgeforge.cli show-lab-profile-input builds/test__jetson__tensorrt/metadata.json`.
+
+```json
+{
+  "engine": "tensorrt",
+  "device": "jetson",
+  "precision": "fp16",
+  "engine_path": "builds/test__jetson__tensorrt/model.engine",
+  "runtime_artifact_path": "builds/test__jetson__tensorrt/model.engine"
+}
+```
+
+### 3. Lab Profile Command
+
+This is the output of `python -m inferedgeforge.cli show-lab-profile-command builds/test__jetson__tensorrt/metadata.json`.
+
+```bash
+python -m inferedgelab.cli profile models/test.onnx --engine tensorrt --engine-path builds/test__jetson__tensorrt/model.engine --device-name jetson --precision fp16
+```
+
+This command can be executed directly to run validation in InferEdgeLab.
+
 ## Architecture Snapshot
 
 InferEdgeForge is being structured as a build system with a small number of stable concepts:
