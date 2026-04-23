@@ -124,6 +124,8 @@ Additional read-only commands such as `list-presets` and `show-preset` are plann
 
 ## Installation and Execution
 
+New here? See [docs/quickstart.md](docs/quickstart.md) for a practical end-to-end walkthrough covering editable install, simple test model creation, build execution, output inspection, and InferEdgeLab handoff.
+
 Use an editable install during development:
 
 ```bash
