@@ -12,6 +12,8 @@ from inferedgeforge.schemas import (
     ArtifactRecord,
     BuildInfo,
     BuildMetadata,
+    LabCompatibility,
+    LabRuntimeMapping,
     SourceModelInfo,
     ValidationHandoff,
 )
@@ -27,6 +29,50 @@ def _build_id(model_path: Path, preset_name: str, backend: str, timestamp: str) 
     return f"{model_path.stem}-{backend}-{preset_suffix}-{safe_timestamp}"
 
 
+def _extract_requested_shape_from_preset_metadata(
+    preset_metadata: dict[str, object] | None,
+) -> tuple[int | None, int | None, int | None]:
+    if not isinstance(preset_metadata, dict):
+        return None, None, None
+
+    def _maybe_positive_int(key: str) -> int | None:
+        value = preset_metadata.get(key)
+        if isinstance(value, int) and value > 0:
+            return value
+        return None
+
+    return (
+        _maybe_positive_int("requested_batch"),
+        _maybe_positive_int("requested_height"),
+        _maybe_positive_int("requested_width"),
+    )
+
+
+def create_lab_compatibility(
+    backend: str,
+    target: str,
+    preset_precision: str,
+    artifact_path: str,
+    preset_metadata: dict[str, object] | None = None,
+) -> LabCompatibility:
+    requested_batch, requested_height, requested_width = _extract_requested_shape_from_preset_metadata(
+        preset_metadata
+    )
+    return LabCompatibility(
+        profile_ready=True,
+        runtime=LabRuntimeMapping(
+            engine=backend,
+            device=target,
+            precision=preset_precision,
+            engine_path=artifact_path,
+            runtime_artifact_path=artifact_path,
+            requested_batch=requested_batch,
+            requested_height=requested_height,
+            requested_width=requested_width,
+        ),
+    )
+
+
 def create_build_metadata(
     model_path: str | Path,
     preset_name: str,
@@ -36,6 +82,8 @@ def create_build_metadata(
     artifact_format: str,
     handoff_consumer: str = "InferEdgeLab",
     source_sha256: str | None = None,
+    preset_metadata: dict[str, object] | None = None,
+    preset_build_options: dict[str, object] | None = None,
 ) -> BuildMetadata:
     source_path = Path(model_path)
     timestamp = _utc_timestamp()
@@ -44,6 +92,21 @@ def create_build_metadata(
         ArtifactRecord(path=artifact_path, format=artifact_format, role="deployment_model")
         for artifact_path in artifact_paths
     ]
+    precision = "unknown"
+    if isinstance(preset_build_options, dict):
+        raw_precision = preset_build_options.get("precision")
+        if isinstance(raw_precision, str) and raw_precision.strip():
+            precision = raw_precision
+
+    lab_compat = None
+    if artifact_paths:
+        lab_compat = create_lab_compatibility(
+            backend=backend,
+            target=target,
+            preset_precision=precision,
+            artifact_path=artifact_paths[0],
+            preset_metadata=preset_metadata,
+        )
 
     return BuildMetadata(
         schema_version="0.1.0",
@@ -61,7 +124,25 @@ def create_build_metadata(
         ),
         artifacts=artifacts,
         handoff=ValidationHandoff(consumer=handoff_consumer, ready=True),
+        lab_compat=lab_compat,
     )
+
+
+def to_lab_profile_input(metadata: BuildMetadata) -> dict[str, object]:
+    if metadata.lab_compat is None:
+        raise ValueError("Build metadata does not include lab_compat.")
+
+    runtime = metadata.lab_compat.runtime
+    return {
+        "engine": runtime.engine,
+        "device": runtime.device,
+        "precision": runtime.precision,
+        "engine_path": runtime.engine_path,
+        "runtime_artifact_path": runtime.runtime_artifact_path,
+        "requested_batch": runtime.requested_batch,
+        "requested_height": runtime.requested_height,
+        "requested_width": runtime.requested_width,
+    }
 
 
 def run_build(
@@ -98,6 +179,8 @@ def run_build(
         target=result.target,
         artifact_paths=result.artifact_paths,
         artifact_format=preset.artifact_format,
+        preset_metadata=preset.metadata,
+        preset_build_options=preset.build_options,
     )
     write_build_metadata(metadata, build_dir / "metadata.json")
     return metadata

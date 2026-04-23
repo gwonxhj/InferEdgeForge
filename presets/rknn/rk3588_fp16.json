@@ -5,6 +5,7 @@
   "source_format": "onnx",
   "artifact_format": "rknn",
   "build_options": {
+    "target_platform": "rk3588",
     "optimization_level": 2,
     "quantization": false,
     "precision": "fp16"

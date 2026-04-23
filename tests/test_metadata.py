@@ -9,6 +9,8 @@ from inferedgeforge.schemas import (
     ArtifactRecord,
     BuildInfo,
     BuildMetadata,
+    LabCompatibility,
+    LabRuntimeMapping,
     SourceModelInfo,
     ValidationHandoff,
 )
@@ -37,6 +39,16 @@ def _sample_metadata() -> BuildMetadata:
             )
         ],
         handoff=ValidationHandoff(consumer="InferEdgeLab", ready=True),
+        lab_compat=LabCompatibility(
+            profile_ready=True,
+            runtime=LabRuntimeMapping(
+                engine="rknn",
+                device="rk3588",
+                precision="fp16",
+                engine_path="artifacts/resnet50/model.rknn",
+                runtime_artifact_path="artifacts/resnet50/model.rknn",
+            ),
+        ),
     )
 
 
@@ -63,6 +75,7 @@ def test_build_metadata_to_dict_structure() -> None:
     assert payload["source_model"]["format"] == "onnx"
     assert payload["artifacts"][0]["role"] == "deployment_model"
     assert payload["handoff"]["consumer"] == "InferEdgeLab"
+    assert payload["lab_compat"]["runtime"]["engine"] == "rknn"
 
 
 def test_build_metadata_from_dict_roundtrip() -> None:
@@ -82,6 +95,61 @@ def test_write_and_read_build_metadata(tmp_path) -> None:
 
     assert written_path == metadata_path
     assert restored.to_dict() == metadata.to_dict()
+
+
+def test_build_metadata_without_lab_compat_still_loads() -> None:
+    payload = {
+        "schema_version": "0.1.0",
+        "build": {
+            "build_id": "build-001",
+            "timestamp": "2026-04-22T12:00:00Z",
+            "preset_name": "rknn/rk3588_fp16",
+            "backend": "rknn",
+            "target": "rk3588",
+        },
+        "source_model": {
+            "path": "models/resnet50.onnx",
+            "format": "onnx",
+        },
+        "artifacts": [
+            {
+                "path": "artifacts/resnet50/model.rknn",
+                "format": "rknn",
+                "role": "deployment_model",
+            }
+        ],
+        "handoff": {
+            "consumer": "InferEdgeLab",
+            "ready": True,
+        },
+    }
+
+    metadata = BuildMetadata.from_dict(payload)
+
+    assert metadata.lab_compat is None
+
+
+def test_lab_runtime_mapping_empty_engine_path_raises() -> None:
+    with pytest.raises(ValueError, match="engine_path"):
+        LabRuntimeMapping(
+            engine="rknn",
+            device="rk3588",
+            precision="fp16",
+            engine_path="",
+            runtime_artifact_path="artifact.rknn",
+        )
+
+
+def test_lab_runtime_mapping_invalid_requested_batch_raises() -> None:
+    with pytest.raises(ValueError, match="requested_batch"):
+        LabRuntimeMapping(
+            engine="rknn",
+            device="rk3588",
+            precision="fp16",
+            engine_path="artifact.rknn",
+            runtime_artifact_path="artifact.rknn",
+            requested_batch=0,
+        )
 
 
 def test_read_build_metadata_invalid_shape_raises(tmp_path) -> None:
