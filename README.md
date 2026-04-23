@@ -1,12 +1,12 @@
 # InferEdgeForge
 
-**A CLI-first optimization pipeline that turns ONNX models into reproducible deployment artifacts for edge inference targets.**
+**A CLI-first build orchestration pipeline that turns ONNX models into traceable edge deployment artifacts, structured metadata, and InferEdgeLab-ready handoff records.**
 
 ## Why This Project Exists
 
 Deploying an ONNX model to an edge device usually requires more than model conversion. Teams also need target-specific build settings, reproducible output naming, traceable metadata, and a reliable way to hand generated artifacts into downstream validation workflows.
 
-InferEdgeForge exists to make that build step explicit and repeatable. Its job is not to claim that every optimized artifact is automatically the right deployment choice. Its job is to produce disciplined, inspectable deployment artifacts that can be compared and validated later.
+InferEdgeForge exists to make that build step explicit, repeatable, and inspectable. Its job is not to claim that every optimized artifact is automatically the right deployment choice. Its job is to produce deployment artifacts with enough build context, fingerprints, preset intent, and handoff metadata that the result can be reviewed and validated later.
 
 ## What InferEdgeForge Solves
 
@@ -19,8 +19,9 @@ InferEdgeForge is intended to provide a consistent build pipeline for edge infer
 - Emit structured metadata alongside each artifact.
 - Prepare outputs so they can be handed off to validation workflows.
 - Execute the downstream InferEdgeLab profile step from stored handoff metadata when requested.
+- Persist execution summaries so downstream benchmark runs can be traced back to the build context that produced them.
 
-This keeps optimization logic, build configuration, and output records in one place rather than scattering them across ad hoc scripts.
+This keeps optimization logic, build configuration, output records, and downstream execution context in one place rather than scattering them across ad hoc scripts. A Forge build leaves more than an artifact: it leaves `metadata.json` with source and artifact fingerprints, a preset snapshot, Lab handoff mapping, and, after `run-benchmark`, a persisted `run_summary.json`.
 
 ## Relationship to InferEdgeLab
 
@@ -29,7 +30,7 @@ InferEdgeForge and InferEdgeLab are paired projects with different responsibilit
 - **InferEdgeForge builds deployment artifacts.**
 - **InferEdgeLab validates whether those artifacts are better deployment decisions.**
 
-In practical terms, InferEdgeForge is the production side of the pipeline. It takes an ONNX model and produces target-ready artifacts plus metadata describing how they were built.
+In practical terms, InferEdgeForge is the build-generation side of the pipeline. It takes an ONNX model and produces backend-oriented artifacts plus metadata describing how they were built.
 
 InferEdgeLab is the analysis side. It consumes those artifacts and metadata to evaluate runtime behavior, compare alternatives, and study deployment trade-offs such as performance, footprint, compatibility, and reproducibility.
 
@@ -37,25 +38,42 @@ This separation is deliberate. Build generation and deployment evaluation are re
 
 ## Example Output
 
-This section shows representative outputs produced by InferEdgeForge after a build.
+This section shows representative outputs produced by InferEdgeForge after a build and optional downstream execution.
 
 ### 1. Build Metadata (`metadata.json`)
 
-This is a simplified example of the structured metadata emitted after build.
+This is a simplified example of the structured metadata emitted after build. The real file includes additional fields such as schema version, build IDs, timestamps, and Lab-compatible runtime mapping.
 
 ```json
 {
   "build": {
+    "build_id": "test-tensorrt-jetson_fp16-20260423T120000Z",
     "preset_name": "tensorrt/jetson_fp16",
     "backend": "tensorrt",
     "target": "jetson"
   },
+  "source_model": {
+    "path": "models/test.onnx",
+    "format": "onnx",
+    "sha256": "..."
+  },
   "artifacts": [
     {
       "path": "builds/test__jetson__tensorrt/model.engine",
-      "format": "engine"
+      "format": "engine",
+      "role": "deployment_model",
+      "sha256": "..."
     }
   ],
+  "preset_snapshot": {
+    "name": "tensorrt/jetson_fp16",
+    "backend": "tensorrt",
+    "target": "jetson",
+    "build_options": {
+      "precision": "fp16",
+      "workspace_mb": 2048
+    }
+  },
   "lab_compat": {
     "runtime": {
       "engine": "tensorrt",
@@ -65,6 +83,8 @@ This is a simplified example of the structured metadata emitted after build.
   }
 }
 ```
+
+The metadata records both build identity and build intent. If a preset changes later, the snapshot in `metadata.json` still preserves the effective preset values used for that build.
 
 ### 2. Lab Profile Input
 
@@ -90,6 +110,37 @@ python -m inferedgelab.cli profile models/test.onnx --engine tensorrt --engine-p
 
 This command can be executed directly to run validation in InferEdgeLab.
 
+### 4. Persisted Run Summary (`run_summary.json`)
+
+After `run-benchmark`, Forge persists a summary next to the build metadata.
+
+```json
+{
+  "command": "python -m inferedgelab.cli profile models/test.onnx --engine tensorrt ...",
+  "returncode": 0,
+  "structured_result_path": "results/test.json",
+  "summary_file_path": "builds/test__jetson__tensorrt/run_summary.json",
+  "status": "completed",
+  "build_id": "test-tensorrt-jetson_fp16-20260423T120000Z",
+  "preset_name": "tensorrt/jetson_fp16",
+  "backend": "tensorrt",
+  "target": "jetson",
+  "source_model": {
+    "path": "models/test.onnx",
+    "format": "onnx",
+    "sha256": "..."
+  },
+  "primary_artifact": {
+    "path": "builds/test__jetson__tensorrt/model.engine",
+    "format": "engine",
+    "role": "deployment_model",
+    "sha256": "..."
+  }
+}
+```
+
+This makes the downstream execution trace self-contained enough to understand which build, preset, source model, and artifact were used.
+
 ## Architecture Snapshot
 
 InferEdgeForge is being structured as a build system with a small number of stable concepts:
@@ -98,20 +149,22 @@ InferEdgeForge is being structured as a build system with a small number of stab
 - **Preset**: a reusable build profile that expresses optimization intent.
 - **Builder**: a backend-specific implementation such as RKNN or TensorRT.
 - **Artifact output**: the generated deployment files for a chosen edge inference target.
-- **Metadata output**: structured JSON describing the build inputs, selected preset, target/backend, and produced files.
+- **Metadata output**: structured JSON describing the build inputs, preset snapshot, source fingerprint, target/backend, produced files, artifact fingerprints, and handoff mapping.
 - **Validation handoff**: a clean boundary where InferEdgeLab can consume artifacts without depending on internal build logic.
+- **Execution summary**: optional persisted `run_summary.json` from `run-benchmark`, linked back to the build and artifact context.
 
 ## Current CLI Workflow
 
-The current workflow is intentionally narrow and build-centered:
+The current workflow is intentionally narrow, build-centered, and traceable:
 
 1. Select an ONNX model.
 2. Choose a preset.
 3. Choose a target/backend.
 4. Run `build --dry-run` to preview the expected build plan.
 5. Run `build` to produce deployment artifacts and structured metadata.
-6. Inspect metadata and handoff details with read-only commands.
-7. Optionally run the downstream InferEdgeLab profile step with `run-benchmark`.
+6. Run `inspect-build --summary` for a human-readable status view, or `inspect-build` for full JSON.
+7. Use `show-lab-profile-input` or `show-lab-profile-command` to expose the handoff mapping explicitly.
+8. Optionally run the downstream InferEdgeLab profile step with `run-benchmark`.
 
 Representative build command:
 
@@ -132,11 +185,14 @@ python -m inferedgeforge.cli build \
   --dry-run
 ```
 
-The output is JSON-only and includes a predictable artifact/output preview plus an InferEdgeLab handoff preview.
+The output is JSON-only and includes predictable artifact, metadata, and run summary path previews plus an InferEdgeLab handoff preview. It does not create files or execute the backend builder.
 
 Use read-only inspection commands to review generated metadata and handoff information:
 
 ```bash
+python -m inferedgeforge.cli inspect-build --summary \
+  builds/test__jetson__tensorrt/metadata.json
+
 python -m inferedgeforge.cli inspect-build \
   builds/test__jetson__tensorrt/metadata.json
 
@@ -147,7 +203,7 @@ python -m inferedgeforge.cli show-lab-profile-command \
   builds/test__jetson__tensorrt/metadata.json
 ```
 
-`inspect-build` includes build metadata, handoff details, Lab profile previews, and any persisted `run_summary.json` found in the build directory.
+`inspect-build --summary` gives a concise human-readable view of build identity, preset, source model fingerprint, artifact fingerprint, run status, and the next step. The default `inspect-build` command preserves the full JSON inspection view. If a persisted `run_summary.json` exists in the build directory, inspection includes that downstream execution context.
 
 Use `run-benchmark` to execute the downstream InferEdgeLab profile flow from `metadata.json`.
 
@@ -156,7 +212,7 @@ python -m inferedgeforge.cli run-benchmark \
   builds/test__jetson__tensorrt/metadata.json
 ```
 
-This command uses the stored handoff metadata to execute the downstream Lab profile step, then prints and saves a Forge-side execution summary.
+This command uses the stored handoff metadata to execute the downstream Lab profile step, then prints and saves a Forge-side execution summary as `run_summary.json`. The summary includes command output paths plus build, preset, source model, and primary artifact context.
 
 Preset discovery is available through `list-presets` and `show-preset` before builds are executed.
 
@@ -192,7 +248,10 @@ The MVP is focused on establishing a reliable build contract rather than broad b
 - Minimal TensorRT artifact path for local workflow validation
 - Output layout suitable for validation handoff into InferEdgeLab
 - Read-only inspection commands for metadata and Lab handoff information
+- Source model and artifact SHA-256 fingerprints in metadata
+- Preset snapshots persisted with build metadata
 - Metadata-based downstream execution through `run-benchmark`
+- Persisted execution summaries visible through `inspect-build`
 
 Non-goals for the MVP:
 
@@ -238,14 +297,16 @@ The project roadmap is staged around predictable build capability:
 1. Establish the project foundation and core interfaces.
 2. Introduce the preset and metadata system.
 3. Implement the first real RKNN build path.
-4. Add TensorRT build support.
+4. Add TensorRT-oriented build support.
 5. Formalize validation handoff into InferEdgeLab.
 6. Improve developer experience, packaging, and test coverage.
 
-See [Roadmap.md](/Users/GwonHyeokJun/InferEdgeForge/Roadmap.md) for the phase-by-phase plan.
+See [Roadmap.md](Roadmap.md) for the phase-by-phase plan.
 
 ## Status
 
-InferEdgeForge has an initial MVP workflow in place. It can discover presets, preview build plans, generate build artifacts and metadata, expose InferEdgeLab handoff mappings, execute the downstream profile command through `run-benchmark`, persist run summaries, and include those summaries in `inspect-build` output.
+InferEdgeForge has an initial MVP workflow in place. It can discover presets, preview build plans, generate build artifacts and metadata, record source model and artifact fingerprints, persist preset snapshots, expose InferEdgeLab handoff mappings, execute the downstream profile command through `run-benchmark`, persist enriched run summaries, and include those summaries in `inspect-build` output.
+
+The current inspection flow supports both full JSON review and a human-readable `inspect-build --summary` view that highlights build, preset, source model, artifact, run status, and next-step context.
 
 The repository should still be read as a focused foundation rather than a claim that every backend pipeline is production-complete. Backend-specific toolchains, real TensorRT engine generation, broader device coverage, and validation analysis remain staged work.
