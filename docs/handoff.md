@@ -32,8 +32,8 @@ The contract is intentionally simple: Forge is responsible for producing inspect
 2. Run `build` to generate actual artifacts and metadata.
 3. Run `inspect-build` to review the consolidated summary.
 4. Run `show-lab-profile-input` to view the structured Lab mapping.
-5. Run `show-lab-profile-command` to get the runnable next-step command.
-6. Execute the generated InferEdgeLab profile command in the downstream validation environment.
+5. Run `show-lab-profile-command` to expose the runnable next-step command.
+6. Run `run-benchmark` to execute that downstream command through Forge.
 
 ## Example Commands
 
@@ -56,6 +56,9 @@ python -m inferedgeforge.cli show-lab-profile-input \
   builds/test__jetson__tensorrt/metadata.json
 
 python -m inferedgeforge.cli show-lab-profile-command \
+  builds/test__jetson__tensorrt/metadata.json
+
+python -m inferedgeforge.cli run-benchmark \
   builds/test__jetson__tensorrt/metadata.json
 ```
 

@@ -132,6 +132,15 @@ python -m inferedgeforge.cli build \
 
 The output is JSON-only and includes a predictable artifact/output preview plus an InferEdgeLab handoff preview.
 
+Use `run-benchmark` to execute the downstream InferEdgeLab profile flow from `metadata.json`.
+
+```bash
+python -m inferedgeforge.cli run-benchmark \
+  builds/test__jetson__tensorrt/metadata.json
+```
+
+This command uses the stored handoff metadata to execute the downstream Lab profile step.
+
 Additional read-only commands such as `list-presets` and `show-preset` are planned to support preset discovery before builds are executed.
 
 ## Installation and Execution
