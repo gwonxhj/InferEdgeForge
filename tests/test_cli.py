@@ -105,7 +105,9 @@ def test_build_dry_run_prints_json_without_creating_output_dir(tmp_path, capsys)
     assert payload["backend"] == "rknn"
     assert payload["target"] == "rk3588"
     assert payload["artifact_format"] == "rknn"
-    assert payload["output_pattern"] == "builds/resnet50__rk3588__rknn/model.rknn"
+    assert payload["artifact_path_preview"] == "builds/resnet50__rk3588__rknn/model.rknn"
+    assert payload["metadata_path_preview"] == "builds/resnet50__rk3588__rknn/metadata.json"
+    assert payload["run_summary_path_preview"] == "builds/resnet50__rk3588__rknn/run_summary.json"
     assert payload["lab_profile_preview"]["engine"] == "rknn"
     assert not output_dir.exists()
 

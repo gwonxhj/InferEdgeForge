@@ -112,7 +112,9 @@ def test_create_build_plan_returns_expected_preview(tmp_path) -> None:
     assert payload["backend"] == "rknn"
     assert payload["target"] == "rk3588"
     assert payload["artifact_format"] == "rknn"
-    assert payload["output_pattern"] == "builds/resnet50__rk3588__rknn/model.rknn"
+    assert payload["artifact_path_preview"] == "builds/resnet50__rk3588__rknn/model.rknn"
+    assert payload["metadata_path_preview"] == "builds/resnet50__rk3588__rknn/metadata.json"
+    assert payload["run_summary_path_preview"] == "builds/resnet50__rk3588__rknn/run_summary.json"
     assert payload["lab_profile_preview"] == {
         "engine": "rknn",
         "device": "rk3588",
@@ -123,6 +125,26 @@ def test_create_build_plan_returns_expected_preview(tmp_path) -> None:
         "requested_height": None,
         "requested_width": None,
     }
+
+
+def test_create_build_plan_preview_paths_share_build_directory(tmp_path) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "test.onnx"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+
+    payload = create_build_plan(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        presets_root=repo_root / "presets",
+    )
+
+    artifact_path = Path(str(payload["artifact_path_preview"]))
+    metadata_path = Path(str(payload["metadata_path_preview"]))
+    run_summary_path = Path(str(payload["run_summary_path_preview"]))
+
+    assert metadata_path == Path("builds/test__jetson__tensorrt/metadata.json")
+    assert run_summary_path == Path("builds/test__jetson__tensorrt/run_summary.json")
+    assert artifact_path.parent == metadata_path.parent == run_summary_path.parent
 
 
 def test_create_build_plan_invalid_preset_raises(tmp_path) -> None:
