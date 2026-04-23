@@ -1,6 +1,6 @@
 # InferEdgeForge Quickstart
 
-This quickstart shows how to try the current InferEdgeForge workflow in a few minutes: install in editable mode, create a simple ONNX input, run a build, inspect output metadata, and prepare a handoff into InferEdgeLab.
+This quickstart shows how to try the current InferEdgeForge workflow in a few minutes: install in editable mode, create a simple ONNX input, preview a build plan, run a build, inspect output metadata, and prepare a handoff into InferEdgeLab.
 
 ## Prerequisites
 
@@ -27,7 +27,19 @@ echo "dummy onnx content" > models/test.onnx
 
 This dummy file is only for validating the current build/metadata/handoff flow, not for real inference.
 
-## 3. Run a Build
+## 3. Run a Dry-Run Build Preview
+
+```bash
+python -m inferedgeforge.cli build \
+  --model models/test.onnx \
+  --preset tensorrt/jetson_fp16 \
+  --output builds \
+  --dry-run
+```
+
+This preview creates no files and is useful for validating preset selection and the expected InferEdgeLab handoff structure before a real build.
+
+## 4. Run a Build
 
 ```bash
 python -m inferedgeforge.cli build \
@@ -47,7 +59,7 @@ Artifacts: 1
 Metadata : builds/test__jetson__tensorrt/metadata.json
 ```
 
-## 4. Inspect the Build Output
+## 5. Inspect the Build Output
 
 ```bash
 python -m inferedgeforge.cli show-lab-profile-input \
@@ -68,9 +80,9 @@ python -m inferedgeforge.cli inspect-build \
   builds/test__jetson__tensorrt/metadata.json
 ```
 
-`inspect-build` prints a consolidated summary of build details and handoff-ready information.
+`inspect-build` prints a consolidated summary of build details and handoff-ready information. The dry-run preview is for plan validation only, while the real build produces metadata and artifacts for inspection.
 
-## 5. Handoff to InferEdgeLab
+## 6. Handoff to InferEdgeLab
 
 InferEdgeForge does not benchmark runtime performance or score deployment quality. Its role is to prepare structured build outputs and validation-ready handoff information. InferEdgeLab is the downstream tool that performs runtime profiling, comparison, and deployment trade-off analysis.
 
