@@ -95,16 +95,25 @@ def create_build_metadata(
     artifact_format: str,
     handoff_consumer: str = "InferEdgeLab",
     source_sha256: str | None = None,
+    artifact_sha256s: list[str | None] | None = None,
     preset_metadata: dict[str, object] | None = None,
     preset_build_options: dict[str, object] | None = None,
 ) -> BuildMetadata:
     source_path = Path(model_path)
     timestamp = _utc_timestamp()
     build_id = _build_id(source_path, preset_name, backend, timestamp)
-    artifacts = [
-        ArtifactRecord(path=artifact_path, format=artifact_format, role="deployment_model")
-        for artifact_path in artifact_paths
-    ]
+    artifact_sha256s = artifact_sha256s or [None] * len(artifact_paths)
+    artifacts = []
+    for index, artifact_path in enumerate(artifact_paths):
+        artifact_sha256 = artifact_sha256s[index] if index < len(artifact_sha256s) else None
+        artifacts.append(
+            ArtifactRecord(
+                path=artifact_path,
+                format=artifact_format,
+                role="deployment_model",
+                sha256=artifact_sha256,
+            )
+        )
     precision = "unknown"
     if isinstance(preset_build_options, dict):
         raw_precision = preset_build_options.get("precision")
@@ -344,6 +353,7 @@ def inspect_build_metadata(metadata: BuildMetadata) -> dict[str, object]:
 
 def format_inspect_summary(metadata: BuildMetadata, run_summary: dict[str, object] | None) -> str:
     artifact_path = metadata.artifacts[0].path if metadata.artifacts else "none"
+    artifact_sha256 = metadata.artifacts[0].sha256 if metadata.artifacts else None
     lines = [
         "Build:",
         f"  build_id: {metadata.build.build_id}",
@@ -352,6 +362,7 @@ def format_inspect_summary(metadata: BuildMetadata, run_summary: dict[str, objec
         f"  Source SHA256: {metadata.source_model.sha256 or 'unknown'}",
         "Artifact:",
         f"  path: {artifact_path}",
+        f"  Artifact SHA256: {artifact_sha256 or 'unknown'}",
         "Run Status:",
     ]
 
@@ -406,6 +417,7 @@ def run_build(
         output_dir=str(build_dir),
     )
     result = builder.build(request)
+    artifact_sha256s = [_compute_file_sha256(path) for path in result.artifact_paths]
 
     metadata = create_build_metadata(
         model_path=source_path,
@@ -415,6 +427,7 @@ def run_build(
         artifact_paths=result.artifact_paths,
         artifact_format=preset.artifact_format,
         source_sha256=source_sha256,
+        artifact_sha256s=artifact_sha256s,
         preset_metadata=preset.metadata,
         preset_build_options=preset.build_options,
     )

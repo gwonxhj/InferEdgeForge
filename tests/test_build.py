@@ -22,6 +22,7 @@ from inferedgeforge.build import (
     write_run_summary,
 )
 from inferedgeforge.cli import main
+from inferedgeforge.metadata import read_build_metadata
 from inferedgeforge.schemas import (
     ArtifactRecord,
     BuildInfo,
@@ -88,6 +89,7 @@ def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
     assert metadata.build.backend == "rknn"
     assert metadata.build.target == "rk3588"
     assert metadata.source_model.sha256 == expected_sha256
+    assert metadata.artifacts[0].sha256 == hashlib.sha256(b"fake rknn artifact").hexdigest()
     assert metadata.lab_compat is not None
     assert metadata.lab_compat.profile_ready is True
     assert metadata.lab_compat.runtime.engine == "rknn"
@@ -97,6 +99,8 @@ def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
     assert metadata.lab_compat.runtime.runtime_artifact_path == str(build_dir / "model.rknn")
     assert (build_dir / "metadata.json").exists()
     assert (build_dir / "model.rknn").exists()
+    persisted_metadata = read_build_metadata(build_dir / "metadata.json")
+    assert persisted_metadata.artifacts[0].sha256 == metadata.artifacts[0].sha256
 
 
 def test_create_build_plan_returns_expected_preview(tmp_path) -> None:
@@ -240,6 +244,9 @@ def test_run_build_rknn_stub_creates_real_artifact_and_metadata(tmp_path, monkey
     assert artifact_path.exists()
     assert metadata_path.exists()
     assert metadata.artifacts[0].path == str(artifact_path)
+    assert metadata.artifacts[0].sha256 == hashlib.sha256(
+        artifact_path.read_bytes()
+    ).hexdigest()
     assert metadata.build.backend == "rknn"
     assert metadata.build.target == "rk3588"
 
@@ -380,6 +387,7 @@ def test_inspect_build_metadata_includes_lab_handoff_details(tmp_path, monkeypat
     assert payload["build"]["backend"] == "rknn"
     assert payload["source_model"]["format"] == "onnx"
     assert payload["artifacts"][0]["format"] == "rknn"
+    assert payload["artifacts"][0]["sha256"] == metadata.artifacts[0].sha256
     assert payload["handoff"]["consumer"] == "InferEdgeLab"
     assert payload["lab_profile_input"]["engine"] == "rknn"
     assert "python -m inferedgelab.cli profile" in payload["lab_profile_command"]
