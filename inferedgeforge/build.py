@@ -551,6 +551,138 @@ def format_compare_candidates(groups: dict[str, list[BuildMetadata]]) -> str:
     return "\n".join(lines)
 
 
+def _preset_name(metadata: BuildMetadata) -> str:
+    if metadata.preset_snapshot is not None:
+        return metadata.preset_snapshot.name
+    return metadata.build.preset_name
+
+
+def _sorted_builds(metadata_items: list[BuildMetadata]) -> list[BuildMetadata]:
+    return sorted(
+        metadata_items,
+        key=lambda item: (_preset_name(item), item.build.backend, item.build.target),
+    )
+
+
+def _structured_result_path(metadata: BuildMetadata) -> str | None:
+    run_summary = _load_run_summary_if_present(metadata)
+    if run_summary is None:
+        return None
+    value = run_summary.get("structured_result_path")
+    if isinstance(value, str) and value.strip():
+        return value
+    return None
+
+
+def _format_compare_command_unavailable(
+    model: str,
+    reason: str,
+    next_action: str,
+) -> str:
+    return "\n".join(
+        [
+            "Compare Command Preview",
+            "-----------------------",
+            f"Model : {model}",
+            "Status: unavailable",
+            f"Reason: {reason}",
+            "",
+            "Next Step",
+            "---------",
+            f"- {next_action}",
+        ]
+    )
+
+
+def select_compare_pair(
+    groups: dict[str, list[BuildMetadata]],
+    model: str,
+    left: str | None = None,
+    right: str | None = None,
+) -> tuple[BuildMetadata, BuildMetadata] | str:
+    builds = groups.get(model)
+    if not builds:
+        return _format_compare_command_unavailable(
+            model=model,
+            reason="no builds found for this source model",
+            next_action="choose a source model from list-builds or show-compare-candidates",
+        )
+
+    ready_builds = [metadata for metadata in _sorted_builds(builds) if _is_compare_ready(metadata)]
+    if len(ready_builds) < 2:
+        return _format_compare_command_unavailable(
+            model=model,
+            reason="fewer than two benchmark-ready builds are available",
+            next_action="benchmark one more variant to enable comparison",
+        )
+
+    if left is not None and right is not None:
+        if left == right:
+            return _format_compare_command_unavailable(
+                model=model,
+                reason="left and right presets must be different",
+                next_action="choose two ready presets from the same source model group",
+            )
+        by_preset = {_preset_name(metadata): metadata for metadata in ready_builds}
+        missing = [preset for preset in (left, right) if preset not in by_preset]
+        if missing:
+            return _format_compare_command_unavailable(
+                model=model,
+                reason=f"requested preset is not compare-ready: {', '.join(missing)}",
+                next_action="choose two ready presets from show-compare-candidates",
+            )
+        return by_preset[left], by_preset[right]
+
+    return ready_builds[0], ready_builds[1]
+
+
+def format_compare_command_preview(
+    groups: dict[str, list[BuildMetadata]],
+    model: str,
+    left: str | None = None,
+    right: str | None = None,
+) -> str:
+    pair = select_compare_pair(groups=groups, model=model, left=left, right=right)
+    if isinstance(pair, str):
+        return pair
+
+    left_metadata, right_metadata = pair
+    left_result = _structured_result_path(left_metadata)
+    right_result = _structured_result_path(right_metadata)
+    if left_result is None or right_result is None:
+        missing = []
+        if left_result is None:
+            missing.append(_preset_name(left_metadata))
+        if right_result is None:
+            missing.append(_preset_name(right_metadata))
+        return _format_compare_command_unavailable(
+            model=model,
+            reason=f"structured_result_path is missing for: {', '.join(missing)}",
+            next_action="rerun benchmark so structured_result_path is persisted",
+        )
+
+    command = (
+        "python -m inferedgelab.cli compare "
+        f"{shlex.quote(left_result)} {shlex.quote(right_result)}"
+    )
+    return "\n".join(
+        [
+            "Compare Command Preview",
+            "-----------------------",
+            f"Model       : {model}",
+            f"Left Preset : {_preset_name(left_metadata)}",
+            f"Right Preset: {_preset_name(right_metadata)}",
+            "",
+            command,
+            "",
+            "Next Step",
+            "---------",
+            "- run the compare command in InferEdgeLab",
+            "- review latency and trade-off differences",
+        ]
+    )
+
+
 def _format_build_options(build_options: dict[str, object]) -> str:
     return ", ".join(f"{key}={value}" for key, value in sorted(build_options.items()))
 

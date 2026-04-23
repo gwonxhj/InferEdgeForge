@@ -12,6 +12,7 @@ from inferedgeforge.build import (
     collect_metadata_files,
     create_build_plan,
     format_compare_candidates,
+    format_compare_command_preview,
     format_inspect_summary,
     format_build_list,
     group_by_source_model,
@@ -108,6 +109,25 @@ def _cmd_show_compare_candidates(args: argparse.Namespace) -> int:
         metadata_items.append(metadata)
 
     print(format_compare_candidates(group_by_source_model(metadata_items)))
+    return 0
+
+
+def _cmd_show_compare_command(args: argparse.Namespace) -> int:
+    metadata_items = []
+    for metadata_path in collect_metadata_files(args.dir):
+        metadata = read_build_metadata(metadata_path)
+        if metadata.source_model.path != args.model:
+            continue
+        metadata_items.append(metadata)
+
+    print(
+        format_compare_command_preview(
+            group_by_source_model(metadata_items),
+            model=args.model,
+            left=args.left,
+            right=args.right,
+        )
+    )
     return 0
 
 
@@ -224,6 +244,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional source model path to filter by.",
     )
     compare_parser.set_defaults(func=_cmd_show_compare_candidates)
+
+    compare_command_parser = subparsers.add_parser(
+        "show-compare-command",
+        help="Preview an InferEdgeLab compare command for ready build variants.",
+    )
+    compare_command_parser.add_argument(
+        "--dir",
+        required=True,
+        help="Directory containing build metadata.json files.",
+    )
+    compare_command_parser.add_argument(
+        "--model",
+        required=True,
+        help="Source model path to select a build group.",
+    )
+    compare_command_parser.add_argument(
+        "--left",
+        help="Optional left preset name.",
+    )
+    compare_command_parser.add_argument(
+        "--right",
+        help="Optional right preset name.",
+    )
+    compare_command_parser.set_defaults(func=_cmd_show_compare_command)
 
     build_parser = subparsers.add_parser("build", help="Run the MVP build flow.")
     build_parser.add_argument("--model", required=True, help="Path to the source ONNX model.")
