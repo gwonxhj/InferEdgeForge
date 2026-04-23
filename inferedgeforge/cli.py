@@ -11,6 +11,7 @@ from typing import Sequence
 from inferedgeforge.build import (
     collect_metadata_files,
     create_build_plan,
+    format_compare_candidates,
     format_inspect_summary,
     format_build_list,
     group_by_source_model,
@@ -95,6 +96,18 @@ def _cmd_list_builds(args: argparse.Namespace) -> int:
         metadata_items.append(metadata)
 
     print(format_build_list(group_by_source_model(metadata_items)))
+    return 0
+
+
+def _cmd_show_compare_candidates(args: argparse.Namespace) -> int:
+    metadata_items = []
+    for metadata_path in collect_metadata_files(args.dir):
+        metadata = read_build_metadata(metadata_path)
+        if args.model is not None and metadata.source_model.path != args.model:
+            continue
+        metadata_items.append(metadata)
+
+    print(format_compare_candidates(group_by_source_model(metadata_items)))
     return 0
 
 
@@ -196,6 +209,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional source model path to filter by.",
     )
     list_builds_parser.set_defaults(func=_cmd_list_builds)
+
+    compare_parser = subparsers.add_parser(
+        "show-compare-candidates",
+        help="Show compare-ready build variants grouped by source model.",
+    )
+    compare_parser.add_argument(
+        "--dir",
+        required=True,
+        help="Directory containing build metadata.json files.",
+    )
+    compare_parser.add_argument(
+        "--model",
+        help="Optional source model path to filter by.",
+    )
+    compare_parser.set_defaults(func=_cmd_show_compare_candidates)
 
     build_parser = subparsers.add_parser("build", help="Run the MVP build flow.")
     build_parser.add_argument("--model", required=True, help="Path to the source ONNX model.")

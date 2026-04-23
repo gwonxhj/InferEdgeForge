@@ -114,6 +114,120 @@ def test_list_builds_groups_builds_by_source_model(tmp_path, capsys, monkeypatch
     assert "status   : pending (no benchmark)" in captured.out
 
 
+def test_show_compare_candidates_lists_ready_variants(tmp_path, capsys, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "models" / "test.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _install_fake_rknn(monkeypatch)
+
+    tensorrt_metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    rknn_metadata = run_build(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    for metadata in (tensorrt_metadata, rknn_metadata):
+        write_run_summary(
+            metadata,
+            {
+                "command": "python -m inferedgelab.cli profile",
+                "returncode": 0,
+                "structured_result_path": "results/test.json",
+                "status": "completed",
+            },
+        )
+
+    exit_code = main(["show-compare-candidates", "--dir", str(output_dir)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"Compare Candidates: {model_path}" in captured.out
+    assert "Ready" in captured.out
+    assert "Pending" in captured.out
+    assert "tensorrt/jetson_fp16" in captured.out
+    assert "rknn/rk3588_fp16" in captured.out
+    assert "engine   : tensorrt" in captured.out
+    assert "engine   : rknn" in captured.out
+    assert "device   : jetson" in captured.out
+    assert "device   : rk3588" in captured.out
+    assert "precision: fp16" in captured.out
+    assert "- ready builds : 2" in captured.out
+    assert "- pending builds : 0" in captured.out
+    assert "- next action : use InferEdgeLab compare on ready variants" in captured.out
+
+
+def test_show_compare_candidates_filters_model_and_shows_pending(
+    tmp_path,
+    capsys,
+    monkeypatch,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    output_dir = tmp_path / "builds"
+    model_path = tmp_path / "models" / "test.onnx"
+    other_model_path = tmp_path / "models" / "other.onnx"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    other_model_path.write_text("other dummy onnx content", encoding="utf-8")
+    _install_fake_rknn(monkeypatch)
+
+    tensorrt_metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    run_build(
+        model_path=model_path,
+        preset_id="rknn/rk3588_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    run_build(
+        model_path=other_model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    write_run_summary(
+        tensorrt_metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "structured_result_path": "results/test.json",
+            "status": "completed",
+        },
+    )
+
+    exit_code = main(
+        [
+            "show-compare-candidates",
+            "--dir",
+            str(output_dir),
+            "--model",
+            str(model_path),
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert f"Compare Candidates: {model_path}" in captured.out
+    assert str(other_model_path) not in captured.out
+    assert "tensorrt/jetson_fp16" in captured.out
+    assert "rknn/rk3588_fp16" in captured.out
+    assert "status   : benchmark missing" in captured.out
+    assert "- ready builds : 1" in captured.out
+    assert "- pending builds : 1" in captured.out
+    assert "- next action : benchmark one more variant to enable comparison" in captured.out
+
+
 def test_build_parser_constructs() -> None:
     parser = build_parser()
 
