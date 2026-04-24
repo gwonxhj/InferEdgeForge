@@ -1,220 +1,118 @@
 # InferEdgeForge
 
-**A CLI-first build orchestration pipeline that turns ONNX models into traceable edge deployment artifacts, structured metadata, experiment-level build views, and InferEdgeLab-ready handoff records.**
+**A reproducible inference experiment system for edge deployment.**
 
-## Why This Project Exists
+InferEdgeForge is a CLI-first system for turning ONNX models into deployment artifacts, traceable build records, benchmark handoff inputs, and compare-ready experiment outputs. It is not just a model conversion script. It is an attempt to make edge inference packaging reproducible, inspectable, and reviewable as an engineering workflow.
 
-Deploying an ONNX model to an edge device usually requires more than model conversion. Teams also need target-specific build settings, reproducible output naming, traceable metadata, and a reliable way to hand generated artifacts into downstream validation workflows.
+## Problem Statement
 
-InferEdgeForge exists to make that build step explicit, repeatable, and inspectable. Its job is not to claim that every optimized artifact is automatically the right deployment choice. Its job is to produce deployment artifacts with enough build context, fingerprints, preset intent, and handoff metadata that the result can be reviewed and validated later.
+Moving from an ONNX model to an actual edge deployment artifact is usually messy.
 
-As multiple preset variants accumulate for the same source model, Forge also helps organize those builds into a comparison-ready workflow. It can list builds by source model, identify which variants already have benchmark traces, and preview an InferEdgeLab compare command when two structured results are available.
+- Build intent often lives in shell history, ad hoc notes, or one-off scripts.
+- Artifacts can be regenerated, but it is unclear whether they came from the same recipe.
+- Benchmark outputs are hard to trust when they are disconnected from the build context that produced them.
+- Teams may keep the artifact, but lose the preset, source fingerprint, output lineage, and handoff state needed to review it later.
 
-## What InferEdgeForge Solves
+In practice, that means ONNX to edge deployment is often treated like a conversion step instead of an experiment system. Once multiple variants exist, traceability breaks down quickly.
 
-InferEdgeForge is intended to provide a consistent build pipeline for edge inference packaging:
+## Why Existing Workflow Breaks
 
-- Start from a source ONNX model.
-- Apply a named preset that captures build intent.
-- Route the build through a target-specific backend.
-- Generate deployment artifacts with predictable naming.
-- Emit structured metadata alongside each artifact.
-- Prepare outputs so they can be handed off to validation workflows.
-- Execute the downstream InferEdgeLab profile step from stored handoff metadata when requested.
-- Persist execution summaries so downstream benchmark runs can be traced back to the build context that produced them.
-- List multiple builds for the same source model as an experiment view across presets.
-- Identify compare-ready variants and preview a Lab compare command from persisted result paths.
+A typical flow looks simple:
 
-This keeps optimization logic, build configuration, output records, and downstream execution context in one place rather than scattering them across ad hoc scripts. A Forge build leaves more than an artifact: it leaves `metadata.json` with source and artifact fingerprints, a preset snapshot, Lab handoff mapping, and, after `run-benchmark`, a persisted `run_summary.json`.
+1. Export an ONNX model.
+2. Run a backend-specific build command.
+3. Save the artifact somewhere.
+4. Benchmark it later, often in a separate tool.
 
-That means a project can move from single-artifact build output to a small, traceable experiment loop: build several preset variants, benchmark the ones that are ready, then hand the resulting structured outputs to InferEdgeLab for comparison.
+The problem is not that these steps are impossible. The problem is that they are weakly connected.
 
-## Relationship to InferEdgeLab
+- Reproducibility is fragile because the exact preset/build intent may not be preserved.
+- Traceability is fragile because artifact lineage, source hashes, and output context can be lost.
+- Benchmark interpretation is fragile because results may not be tied back to a specific build state.
+- Comparison readiness is fragile because multiple variants may exist, but there is no structured way to know which ones are ready for compare.
 
-InferEdgeForge and InferEdgeLab are paired projects with different responsibilities:
+## What This Project Actually Builds
 
-- **InferEdgeForge builds deployment artifacts.**
-- **InferEdgeLab validates whether those artifacts are better deployment decisions.**
+InferEdgeForge builds **a reproducible inference experiment system for edge deployment**.
 
-In practical terms, InferEdgeForge is the build-generation side of the pipeline. It takes an ONNX model and produces backend-oriented artifacts plus metadata describing how they were built.
+That system has a narrow but important responsibility:
 
-InferEdgeLab is the analysis side. It consumes those artifacts and metadata to evaluate runtime behavior, compare alternatives, and study deployment trade-offs such as performance, footprint, compatibility, and reproducibility.
+- generate deployment artifacts from ONNX using named presets
+- preserve build intent and artifact lineage as structured records
+- prepare downstream benchmark and compare handoff into InferEdgeLab
+- keep build, benchmark trace, and experiment state connected enough to review later
 
-Forge can prepare the compare handoff by showing ready variants and previewing an `inferedgelab compare` command when persisted structured result paths are available. Lab still owns the actual compare execution and result interpretation. This separation is deliberate: build generation, execution trace capture, and deployment evaluation are related, but they should not be collapsed into one tool.
+The output is not only an artifact. It is an artifact plus the context required to reason about that artifact as part of a deployment experiment.
 
-Accuracy evidence can also be attached downstream in InferEdgeLab with task-plus-metrics payloads. That wiring has been smoke-tested with existing InferEdgeLab payload examples, while the recorded Jetson FP16 vs FP32 validation remains latency-only until task-matched TensorRT accuracy evidence is attached for that same evaluation context.
+## Key Capabilities
 
-## Example Output
+InferEdgeForge currently provides these implemented capabilities:
 
-This section shows representative outputs produced by InferEdgeForge after a build and optional downstream execution.
+- `preset`-based build abstraction across backends and targets
+- structured `metadata.json` and `manifest.json` outputs
+- source model and artifact SHA-256 fingerprints
+- preset snapshots persisted with build records
+- InferEdgeLab handoff generation through profile input and command views
+- `run-benchmark` execution from stored handoff metadata
+- persisted `run_summary.json` for downstream traceability
+- experiment-level build listing across preset variants
+- compare-ready candidate discovery
+- compare command preview from persisted structured result paths
+- downstream accuracy evidence attachment support via InferEdgeLab enrich flows
+- `rebuild-from-manifest` support, with Jetson rebuild validation recorded as functionally reproducible
 
-### 1. Build Metadata (`metadata.json`)
+## Real Validation (Jetson)
 
-This is a simplified example of the structured metadata emitted after build. The real file includes additional fields such as schema version, build IDs, timestamps, and Lab-compatible runtime mapping.
+This project is not documented only as a design idea. It has a recorded Jetson validation pass in [docs/jetson_validation.md](docs/jetson_validation.md).
 
-```json
-{
-  "build": {
-    "build_id": "test-tensorrt-jetson_fp16-20260423T120000Z",
-    "preset_name": "tensorrt/jetson_fp16",
-    "backend": "tensorrt",
-    "target": "jetson"
-  },
-  "source_model": {
-    "path": "models/test.onnx",
-    "format": "onnx",
-    "sha256": "..."
-  },
-  "artifacts": [
-    {
-      "path": "builds/test__jetson__tensorrt__jetson_fp16/model.engine",
-      "format": "engine",
-      "role": "deployment_model",
-      "sha256": "..."
-    }
-  ],
-  "preset_snapshot": {
-    "name": "tensorrt/jetson_fp16",
-    "backend": "tensorrt",
-    "target": "jetson",
-    "build_options": {
-      "precision": "fp16",
-      "workspace_mb": 2048
-    }
-  },
-  "lab_compat": {
-    "runtime": {
-      "engine": "tensorrt",
-      "device": "jetson",
-      "precision": "fp16"
-    }
-  }
-}
-```
+Verified on Jetson Orin-class hardware:
 
-The metadata records both build identity and build intent. If a preset changes later, the snapshot in `metadata.json` still preserves the effective preset values used for that build.
+- TensorRT FP16 build succeeded for YOLOv8n
+- TensorRT FP32 build succeeded for YOLOv8n
+- both variants were benchmarked successfully
+- compare handoff was executed and recorded
+- the compare result was documented as **latency-only**
+- an accuracy-aware workflow smoke test was also recorded
+- `rebuild-from-manifest` regenerated a runnable and benchmarkable TensorRT engine in a separate output root
 
-### 2. Lab Profile Input
+What is important here is the level of validation:
 
-This is the output of `python -m inferedgeforge.cli show-lab-profile-input builds/test__jetson__tensorrt__jetson_fp16/metadata.json`.
+- the artifact build path was exercised
+- the benchmark handoff path was exercised
+- the compare-ready workflow was exercised
+- the rebuild path was exercised
 
-```json
-{
-  "engine": "tensorrt",
-  "device": "jetson",
-  "precision": "fp16",
-  "engine_path": "builds/test__jetson__tensorrt__jetson_fp16/model.engine",
-  "runtime_artifact_path": "builds/test__jetson__tensorrt__jetson_fp16/model.engine"
-}
-```
+What is equally important is what is **not** being claimed:
 
-### 3. Lab Profile Command
+- this is not a statement that all TensorRT environments are production-ready
+- this is not a statement that the Jetson compare is already accuracy-aware
+- this is not a statement of bitwise TensorRT artifact reproducibility
 
-This is the output of `python -m inferedgeforge.cli show-lab-profile-command builds/test__jetson__tensorrt__jetson_fp16/metadata.json`.
+The current recorded Jetson compare is intentionally scoped as a latency-oriented FP16 vs FP32 result. Accuracy-aware compare wiring has been smoke-tested with existing InferEdgeLab payload examples, but task-matched TensorRT accuracy evidence has not yet been attached to the official Jetson FP16/FP32 result.
 
-```bash
-python -m inferedgelab.cli profile models/test.onnx --engine tensorrt --engine-path builds/test__jetson__tensorrt__jetson_fp16/model.engine --device-name jetson --precision fp16
-```
+## How The System Works
 
-This command can be executed directly to run validation in InferEdgeLab.
+InferEdgeForge and InferEdgeLab are paired, but they do different jobs.
 
-### 4. Persisted Run Summary (`run_summary.json`)
+**InferEdgeForge**
 
-After `run-benchmark`, Forge persists a summary next to the build metadata.
+- builds deployment artifacts
+- records build identity and preset intent
+- preserves source and artifact fingerprints
+- prepares benchmark and compare handoff state
 
-```json
-{
-  "command": "python -m inferedgelab.cli profile models/test.onnx --engine tensorrt ...",
-  "returncode": 0,
-  "structured_result_path": "results/test.json",
-  "summary_file_path": "builds/test__jetson__tensorrt__jetson_fp16/run_summary.json",
-  "status": "completed",
-  "build_id": "test-tensorrt-jetson_fp16-20260423T120000Z",
-  "preset_name": "tensorrt/jetson_fp16",
-  "backend": "tensorrt",
-  "target": "jetson",
-  "source_model": {
-    "path": "models/test.onnx",
-    "format": "onnx",
-    "sha256": "..."
-  },
-  "primary_artifact": {
-    "path": "builds/test__jetson__tensorrt__jetson_fp16/model.engine",
-    "format": "engine",
-    "role": "deployment_model",
-    "sha256": "..."
-  }
-}
-```
+**InferEdgeLab**
 
-This makes the downstream execution trace self-contained enough to understand which build, preset, source model, and artifact were used.
+- profiles runtime behavior
+- compares structured results
+- attaches downstream accuracy evidence when available
+- interprets trade-offs during validation
 
-### 5. Compare Command Preview
+This separation matters. Build generation and deployment evaluation are related, but they should not be collapsed into one opaque tool.
 
-After two variants for the same source model have benchmark summaries with structured result paths, Forge can preview the Lab compare command.
+## Representative Workflow
 
-```bash
-python -m inferedgeforge.cli show-compare-command \
-  --dir builds \
-  --model models/test.onnx \
-  --left tensorrt/jetson_fp16 \
-  --right rknn/rk3588_fp16
-```
-
-Example output:
-
-```text
-Compare Command Preview
------------------------
-Model       : models/test.onnx
-Left Preset : tensorrt/jetson_fp16
-Right Preset: rknn/rk3588_fp16
-
-python -m inferedgelab.cli compare results/tensorrt.json results/rknn.json
-```
-
-Forge does not run or interpret the compare step here. It only exposes the command preview from existing `run_summary.json` data.
-
-## Architecture Snapshot
-
-InferEdgeForge is being structured as a build system with a small number of stable concepts:
-
-- **Input model**: a source ONNX model provided by the user.
-- **Preset**: a reusable build profile that expresses optimization intent.
-- **Builder**: a backend-specific implementation such as RKNN or TensorRT.
-- **Artifact output**: the generated deployment files for a chosen edge inference target.
-- **Metadata output**: structured JSON describing the build inputs, preset snapshot, source fingerprint, target/backend, produced files, artifact fingerprints, and handoff mapping.
-- **Validation handoff**: a clean boundary where InferEdgeLab can consume artifacts without depending on internal build logic.
-- **Execution summary**: optional persisted `run_summary.json` from `run-benchmark`, linked back to the build and artifact context.
-- **Experiment view**: source-model grouping across multiple preset builds.
-- **Compare preview**: read-only discovery of compare-ready variants and the Lab compare command when structured result paths are present.
-
-## Current CLI Workflow
-
-The current workflow is intentionally narrow, build-centered, and traceable, then extends into compare-ready handoff:
-
-1. Select an ONNX model.
-2. Choose a preset.
-3. Choose a target/backend.
-4. Run `build --dry-run` to preview the expected build plan.
-5. Run `build` to produce deployment artifacts and structured metadata.
-6. Run `inspect-build --summary` for a human-readable status view, or `inspect-build` for full JSON.
-7. Use `show-lab-profile-input` or `show-lab-profile-command` to expose the handoff mapping explicitly.
-8. Run the downstream InferEdgeLab profile step with `run-benchmark` when the environment is ready.
-9. Use `list-builds` to view multiple builds grouped by source model.
-10. Use `show-compare-candidates` to distinguish ready and pending variants.
-11. Use `show-compare-command` to preview the Lab compare command when two ready variants have structured result paths.
-
-Representative build command:
-
-```bash
-inferedgeforge build \
-  --model ./models/resnet50.onnx \
-  --preset rknn/rk3588_fp16 \
-  --output ./artifacts
-```
-
-Use `build --dry-run` to preview the build plan without executing the backend builder.
+The current workflow is intentionally build-centered and traceable.
 
 ```bash
 python -m inferedgeforge.cli build \
@@ -222,155 +120,94 @@ python -m inferedgeforge.cli build \
   --preset tensorrt/jetson_fp16 \
   --output builds \
   --dry-run
-```
 
-The output is JSON-only and includes predictable artifact, metadata, and run summary path previews plus an InferEdgeLab handoff preview. It does not create files or execute the backend builder.
+python -m inferedgeforge.cli build \
+  --model models/test.onnx \
+  --preset tensorrt/jetson_fp16 \
+  --output builds
 
-Use read-only inspection commands to review generated metadata and handoff information:
-
-```bash
 python -m inferedgeforge.cli inspect-build --summary \
   builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 
-python -m inferedgeforge.cli inspect-build \
-  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
-
-python -m inferedgeforge.cli show-lab-profile-input \
-  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
-
-python -m inferedgeforge.cli show-lab-profile-command \
-  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
-```
-
-`inspect-build --summary` gives a concise human-readable view of build identity, preset, source model fingerprint, artifact fingerprint, run status, and the next step. The default `inspect-build` command preserves the full JSON inspection view. If a persisted `run_summary.json` exists in the build directory, inspection includes that downstream execution context.
-
-Use `run-benchmark` to execute the downstream InferEdgeLab profile flow from `metadata.json`.
-
-```bash
 python -m inferedgeforge.cli run-benchmark \
   builds/test__jetson__tensorrt__jetson_fp16/metadata.json
-```
 
-This command uses the stored handoff metadata to execute the downstream Lab profile step, then prints and saves a Forge-side execution summary as `run_summary.json`. The summary includes command output paths plus build, preset, source model, and primary artifact context.
-
-Use experiment and compare handoff commands after creating and benchmarking multiple preset variants for the same source model:
-
-```bash
 python -m inferedgeforge.cli list-builds --dir builds
 
-python -m inferedgeforge.cli show-compare-candidates --dir builds \
+python -m inferedgeforge.cli show-compare-candidates \
+  --dir builds \
   --model models/test.onnx
 
-python -m inferedgeforge.cli show-compare-command --dir builds \
+python -m inferedgeforge.cli show-compare-command \
+  --dir builds \
   --model models/test.onnx \
   --left tensorrt/jetson_fp16 \
-  --right rknn/rk3588_fp16
+  --right tensorrt/jetson_fp32
 ```
 
-`list-builds` gives an experiment-level view grouped by source model. `show-compare-candidates` separates benchmark-ready variants from pending ones. `show-compare-command` previews an InferEdgeLab `compare` command only when both selected variants have persisted `structured_result_path` values.
+Representative outputs produced by the system:
 
-Preset discovery is available through `list-presets` and `show-preset` before builds are executed.
+- `metadata.json`
+- `manifest.json`
+- deployment artifact such as `model.engine` or `model.rknn`
+- `run_summary.json`
+- compare-ready discovery views across builds
 
-## Installation and Execution
+## Evidence Produced Per Build
 
-New here? See [docs/quickstart.md](docs/quickstart.md) for a practical end-to-end walkthrough covering editable install, simple test model creation, build execution, output inspection, and InferEdgeLab handoff.
+Each build can leave a reviewable record instead of only a binary artifact.
 
-See [examples/README.md](examples/README.md) for minimal local build flow, metadata inspection, InferEdgeLab handoff, and preset-oriented compare workflow examples.
+- `metadata.json`: build identity, source model context, preset snapshot, handoff mapping
+- `manifest.json`: reproducibility-oriented snapshot of the build recipe and artifact context
+- artifact SHA-256: fingerprint of the produced deployment artifact
+- source SHA-256: fingerprint of the ONNX input
+- `run_summary.json`: persisted downstream execution trace after `run-benchmark`
 
-For a hardware-oriented validation record, Jetson TensorRT checklist, and recorded FP16 vs FP32 results, see [docs/jetson_validation.md](docs/jetson_validation.md).
+That is the core difference between this project and a plain conversion wrapper. The system preserves enough state to support later inspection, rebuild, and comparison.
 
-Use an editable install during development:
+## What This Means
 
-```bash
-python -m pip install -e .
-```
+This project is meant to demonstrate more than CLI implementation.
 
-If you do not want to install the console script yet, you can run the CLI module directly:
+It demonstrates the design of a system that supports:
 
-```bash
-python -m inferedgeforge.cli --help
-```
+- **experiment traceability**: multiple preset variants can be grouped and reviewed as one experiment surface
+- **reproducibility**: build intent, manifests, source fingerprints, and rebuild flows are preserved as explicit records
+- **deployment decision support**: compare-ready handoff and benchmark traces help downstream analysis happen with context intact
 
-Backend-specific toolchains are still environment-dependent. For example, RKNN builds require a compatible Linux environment with the appropriate RKNN toolkit installed. The project remains installable even when those backend toolchains are not available.
+That is why this project should be read as an experiment workflow system rather than just a model build utility.
 
-## Initial Scope (MVP)
+## Limitations
 
-The MVP is focused on establishing a reliable build contract rather than broad backend coverage.
+The current system is intentionally honest about its boundaries.
 
-- A CLI entry point centered on `build`
-- Preset discovery from versioned preset definitions
-- Structured metadata generation for every build
-- Initial builder abstraction for multiple backends
-- First concrete backend path for RKNN
-- `trtexec`-based TensorRT engine generation for Jetson-oriented presets
-- Output layout suitable for validation handoff into InferEdgeLab
-- Read-only inspection commands for metadata and Lab handoff information
-- Source model and artifact SHA-256 fingerprints in metadata
-- Preset snapshots persisted with build metadata
-- Metadata-based downstream execution through `run-benchmark`
-- Persisted execution summaries visible through `inspect-build`
-- Experiment-level build listing with `list-builds`
-- Compare candidate discovery with `show-compare-candidates`
-- Compare command preview with `show-compare-command`
+- TensorRT engine hashes are not guaranteed to be bitwise stable across rebuilds
+- Jetson rebuild validation currently supports functional reproducibility, not bitwise identity
+- Jetson FP16 vs FP32 compare is still documented as latency-only
+- accuracy evidence depends on external evaluation results or downstream InferEdgeLab enrich flows
+- some environment details in the Jetson validation record remain `TBD`
+- backend toolchains remain environment-dependent
+- broader device coverage is still open work
 
-Non-goals for the MVP:
+## Documentation Map
 
-- Benchmark claims without a validation workflow
-- Broad device coverage on day one
-- Mixing build generation with runtime scoring or deployment decision logic
-
-## Repository Structure
-
-Current repository shape:
-
-```text
-inferedgeforge/
-  cli.py
-  builders/
-    base.py
-    rknn.py
-    tensorrt.py
-  schemas/
-presets/
-  rknn/
-  tensorrt/
-docs/
-tests/
-README.md
-Roadmap.md
-pyproject.toml
-```
-
-Intended responsibilities:
-
-- `inferedgeforge/cli.py`: CLI entry point and command orchestration
-- `inferedgeforge/builders/`: backend-specific build implementations
-- `inferedgeforge/schemas/`: structured definitions for metadata and related contracts
-- `presets/`: reusable build presets organized by backend or target family
-- `docs/`: design notes and interface decisions
-- `tests/`: verification of CLI behavior, preset loading, and build metadata contracts
-
-## Roadmap Summary
-
-The project roadmap is staged around predictable build capability:
-
-1. Establish the project foundation and core interfaces.
-2. Introduce the preset and metadata system.
-3. Implement the first real RKNN build path.
-4. Add TensorRT-oriented build support.
-5. Formalize validation handoff into InferEdgeLab.
-6. Improve developer experience, packaging, and test coverage.
-
-See [Roadmap.md](Roadmap.md) for the phase-by-phase plan.
+- [docs/quickstart.md](docs/quickstart.md): practical end-to-end quickstart
+- [docs/handoff.md](docs/handoff.md): Forge to Lab handoff contract
+- [docs/jetson_validation.md](docs/jetson_validation.md): recorded Jetson validation evidence
+- [examples/README.md](examples/README.md): examples index
+- [Roadmap.md](Roadmap.md): implementation status and next steps
 
 ## Status
 
-InferEdgeForge has an initial MVP workflow in place. It can discover presets, preview build plans, generate build artifacts and metadata, record source model and artifact fingerprints, persist preset snapshots, expose InferEdgeLab handoff mappings, execute the downstream profile command through `run-benchmark`, persist enriched run summaries, and include those summaries in `inspect-build` output.
+InferEdgeForge already has:
 
-The current inspection and experiment flow supports full JSON review, a human-readable `inspect-build --summary` view, source-model build grouping with `list-builds`, compare-ready discovery with `show-compare-candidates`, and compare command preview with `show-compare-command`.
+- preset-based build orchestration
+- structured metadata and manifest output
+- SHA-based traceability for source models and artifacts
+- Jetson TensorRT real engine generation via `trtexec`
+- benchmark handoff and persisted execution summaries
+- compare-ready experiment views
+- documented Jetson FP16/FP32 validation evidence
+- documented manifest-based rebuild validation
 
-The TensorRT path now includes `trtexec`-based real engine generation, and a Jetson Orin validation pass has been recorded for YOLOv8n FP16 and FP32 build, benchmark, and compare handoff in [docs/jetson_validation.md](docs/jetson_validation.md). That Jetson result is still intentionally scoped as a latency-only compare because task-matched accuracy evidence has not yet been attached to those TensorRT results.
-
-Jetson validation also includes a manifest-based rebuild smoke test that reproduced a runnable and benchmarkable TensorRT engine, while explicitly noting that TensorRT engine hashes are not expected to remain bitwise stable across rebuilds.
-
-The repository should still be read as a focused foundation rather than a claim that every TensorRT environment or deployment workflow is production-complete. Backend-specific toolchains remain environment-dependent, broader device coverage is still open work, and accuracy-aware TensorRT comparison remains downstream work rather than a completed Forge feature.
+It should still be read as a focused and validated foundation, not as a claim that every backend path or deployment workflow is complete.
