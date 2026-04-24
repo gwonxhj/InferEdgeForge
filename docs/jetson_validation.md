@@ -198,6 +198,28 @@ Record observed Jetson results here after execution.
 | P99 delta | `+4.1264 ms` |
 | P99 delta percent | `+24.54%` |
 
+### Accuracy Evidence Status
+
+- This Jetson FP16 vs FP32 validation remains a latency-only compare.
+- The recorded compare output kept `accuracy judge` as `unknown`.
+- Existing RKNN accuracy payloads in InferEdgeLab are schema examples and prior evidence examples only. They were not attached to these Jetson TensorRT results.
+- To make this TensorRT comparison accuracy-aware, matching TensorRT evaluation results need to be generated separately for the same task, dataset, and metric definition, then attached with `enrich-result` or `enrich-pair`.
+- A typical accuracy payload uses a `task` field plus a `metrics` object, for example:
+
+```json
+{
+  "task": "detection",
+  "metrics": {
+    "map50": 0.7791,
+    "f1_score": 0.8180,
+    "precision": 0.7950,
+    "recall": 0.8424
+  }
+}
+```
+
+- After that evidence is attached downstream in InferEdgeLab, compare can be rerun with latency and accuracy evidence together. That did not happen in this Jetson validation record.
+
 ### Workflow Status Snapshot
 
 | Item | Observed Value |
@@ -217,6 +239,8 @@ Record observed Jetson results here after execution.
 - During `run-benchmark`, stderr included the ONNX Runtime GPU discovery warning `GPU device discovery failed: Failed to open /sys/class/drm/card1/device/vendor`.
 - That warning was non-blocking in this validation pass because `returncode` was `0`, the raw report was saved, the structured result was saved, `run_summary.json` was saved, and the compare workflow completed successfully.
 - FP32 was not beneficial in this run despite similar mean latency because the P99 latency regression was materially larger.
+- Accuracy evidence was not attached for these TensorRT results, so the compare outcome should not be read as an accuracy-aware deployment decision.
+- Existing RKNN accuracy payload examples are useful for schema reference only here; they were not reused for the TensorRT Jetson results.
 - Accuracy data was not collected in this pass, so the compare interpretation is latency-only and should not be treated as a full deployment-quality judgement.
 - If rebuild behavior differs across environments, record whether the source ONNX path, preset availability, or TensorRT toolchain layout changed.
 
@@ -227,4 +251,4 @@ Record observed Jetson results here after execution.
 - InferEdgeLab handoff through `run-benchmark`, compare candidate discovery, compare command preview, and actual `compare` execution was completed successfully.
 - In this run, FP32 was effectively neutral on mean latency versus FP16 but regressed materially on P99 latency, so the observed trade-off was `not_beneficial`.
 - Accuracy remained `unknown` in the compare output, so this should be read as a latency-only trade-off result rather than a full accuracy-versus-performance conclusion.
-- Remaining work: record the exact JetPack version and execute `rebuild-from-manifest` on Jetson if rebuild reproducibility needs to be documented in the same level of detail.
+- Remaining work: record the exact JetPack version, execute `rebuild-from-manifest` on Jetson if rebuild reproducibility needs to be documented in the same level of detail, and attach task-matched TensorRT accuracy evidence through InferEdgeLab if an accuracy-aware compare is needed.

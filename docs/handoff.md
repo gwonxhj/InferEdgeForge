@@ -30,6 +30,34 @@ Across multiple builds, Forge can use existing `metadata.json` and `run_summary.
 
 The contract is intentionally simple: Forge is responsible for producing inspectable outputs and structured context around them, while Lab is responsible for consuming that context during validation.
 
+## Accuracy Evidence Attachment
+
+Forge prepares the build-side handoff, but it does not calculate accuracy automatically. If accuracy evidence is needed for downstream comparison, that evidence should be attached in InferEdgeLab after profile results already exist.
+
+In practical terms, accuracy evidence is a separate JSON payload that carries task context plus named metrics. A typical payload shape looks like this:
+
+```json
+{
+  "task": "detection",
+  "metrics": {
+    "map50": 0.7791,
+    "f1_score": 0.8180,
+    "precision": 0.7950,
+    "recall": 0.8424
+  }
+}
+```
+
+That payload is meant to represent an external evaluation result or a separate InferEdgeLab-side evaluation result for a defined task, dataset, and metric set. It should not be treated as something Forge derives from build metadata alone.
+
+InferEdgeLab can attach that evidence to individual results or to a compare pair with commands such as:
+
+`python -m inferedgelab.cli enrich-result --result <result.json> --accuracy-json <accuracy.json> --out-dir results`
+
+`python -m inferedgelab.cli enrich-pair --base-result <base_result.json> --base-accuracy-json <base_accuracy.json> --new-result <new_result.json> --new-accuracy-json <new_accuracy.json> --out-dir results`
+
+After those enrich steps, downstream compare review can expand from latency-only interpretation into latency-plus-accuracy trade-off interpretation. Forge still remains responsible only for artifact generation, traceability, and handoff preparation.
+
 ## Handoff Workflow
 
 1. Run `build --dry-run` to preview the expected build plan without creating files.
@@ -58,19 +86,19 @@ python -m inferedgeforge.cli build \
   --output builds
 
 python -m inferedgeforge.cli inspect-build \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 
 python -m inferedgeforge.cli inspect-build --summary \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 
 python -m inferedgeforge.cli show-lab-profile-input \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 
 python -m inferedgeforge.cli show-lab-profile-command \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 
 python -m inferedgeforge.cli run-benchmark \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 
 python -m inferedgeforge.cli list-builds --dir builds
 
@@ -88,7 +116,7 @@ python -m inferedgeforge.cli show-compare-command \
 Generated downstream example:
 
 ```bash
-python -m inferedgelab.cli profile models/test.onnx --engine tensorrt --engine-path builds/test__jetson__tensorrt/model.engine --device-name jetson --precision fp16
+python -m inferedgelab.cli profile models/test.onnx --engine tensorrt --engine-path builds/test__jetson__tensorrt__jetson_fp16/model.engine --device-name jetson --precision fp16
 ```
 
 ## Important Notes
@@ -101,5 +129,6 @@ python -m inferedgelab.cli profile models/test.onnx --engine tensorrt --engine-p
 - `run-benchmark` executes the stored handoff command and persists a Forge-side execution trace.
 - `list-builds` and `show-compare-candidates` organize existing build directories; they do not create new metadata.
 - `show-compare-command` previews a Lab compare command only when existing run summaries include structured result paths.
+- Accuracy evidence is attached downstream in InferEdgeLab through task-plus-metrics JSON payloads; Forge does not infer those values automatically.
 - Forge does not compute or interpret compare results.
 - The separation is intentional so build generation and validation analysis can remain independent.
