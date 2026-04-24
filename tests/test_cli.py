@@ -10,6 +10,17 @@ from inferedgeforge.build import run_build, write_run_summary
 from inferedgeforge.cli import build_parser, main
 
 
+def _expected_build_dir(
+    output_dir: Path,
+    model_stem: str,
+    target: str,
+    backend: str,
+    preset_name: str,
+) -> Path:
+    preset_suffix = preset_name.rsplit("/", 1)[-1]
+    return output_dir / f"{model_stem}__{target}__{backend}__{preset_suffix}"
+
+
 def _install_fake_rknn(monkeypatch) -> None:
     class FakeRKNN:
         def config(self, **kwargs):
@@ -311,6 +322,74 @@ def test_show_compare_command_previews_requested_pair(tmp_path, capsys, monkeypa
     assert "run the compare command in InferEdgeLab" in captured.out
 
 
+def test_show_compare_command_uses_distinct_tensorrt_variant_results(
+    tmp_path,
+    capsys,
+    monkeypatch,
+) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "models" / "yolov8n.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
+
+    fp16_metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    fp32_metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp32",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    write_run_summary(
+        fp16_metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "structured_result_path": "results/yolov8n_fp16.json",
+            "status": "completed",
+        },
+    )
+    write_run_summary(
+        fp32_metadata,
+        {
+            "command": "python -m inferedgelab.cli profile",
+            "returncode": 0,
+            "structured_result_path": "results/yolov8n_fp32.json",
+            "status": "completed",
+        },
+    )
+
+    exit_code = main(
+        [
+            "show-compare-command",
+            "--dir",
+            str(output_dir),
+            "--model",
+            str(model_path),
+            "--left",
+            "tensorrt/jetson_fp16",
+            "--right",
+            "tensorrt/jetson_fp32",
+        ]
+    )
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Left Preset : tensorrt/jetson_fp16" in captured.out
+    assert "Right Preset: tensorrt/jetson_fp32" in captured.out
+    assert (
+        "python -m inferedgelab.cli compare results/yolov8n_fp16.json "
+        "results/yolov8n_fp32.json"
+    ) in captured.out
+    assert "results/yolov8n_fp16.json results/yolov8n_fp16.json" not in captured.out
+
+
 def test_show_compare_command_requires_two_ready_builds(tmp_path, capsys, monkeypatch) -> None:
     repo_root = Path(__file__).resolve().parents[1]
     model_path = tmp_path / "models" / "test.onnx"
@@ -425,7 +504,13 @@ def test_rebuild_from_manifest_succeeds(tmp_path, capsys, monkeypatch) -> None:
         output_dir=output_dir,
         presets_root=repo_root / "presets",
     )
-    manifest_path = output_dir / "test__jetson__tensorrt" / "manifest.json"
+    manifest_path = _expected_build_dir(
+        output_dir,
+        "test",
+        "jetson",
+        "tensorrt",
+        "tensorrt/jetson_fp16",
+    ) / "manifest.json"
 
     exit_code = main(["rebuild-from-manifest", str(manifest_path)])
     captured = capsys.readouterr()
@@ -436,13 +521,14 @@ def test_rebuild_from_manifest_succeeds(tmp_path, capsys, monkeypatch) -> None:
     assert "Preset   : tensorrt/jetson_fp16" in captured.out
     assert f"Model    : {model_path}" in captured.out
     assert f"Output   : {output_dir}" in captured.out
-    assert (output_dir / "test__jetson__tensorrt" / "metadata.json").exists()
-    assert (output_dir / "test__jetson__tensorrt" / "manifest.json").exists()
+    rebuilt_dir = _expected_build_dir(output_dir, "test", "jetson", "tensorrt", "tensorrt/jetson_fp16")
+    assert (rebuilt_dir / "metadata.json").exists()
+    assert (rebuilt_dir / "manifest.json").exists()
 
 
 def test_rebuild_from_manifest_requires_preset_name(tmp_path, capsys) -> None:
     model_path = tmp_path / "models" / "test.onnx"
-    manifest_path = tmp_path / "builds" / "test__jetson__tensorrt" / "manifest.json"
+    manifest_path = tmp_path / "builds" / "test__jetson__tensorrt__jetson_fp16" / "manifest.json"
     model_path.parent.mkdir(parents=True)
     manifest_path.parent.mkdir(parents=True)
     model_path.write_text("dummy onnx content", encoding="utf-8")
@@ -484,7 +570,13 @@ def test_rebuild_from_manifest_uses_output_override(tmp_path, capsys, monkeypatc
         output_dir=output_dir,
         presets_root=repo_root / "presets",
     )
-    manifest_path = output_dir / "test__jetson__tensorrt" / "manifest.json"
+    manifest_path = _expected_build_dir(
+        output_dir,
+        "test",
+        "jetson",
+        "tensorrt",
+        "tensorrt/jetson_fp16",
+    ) / "manifest.json"
 
     exit_code = main(
         [
@@ -498,8 +590,15 @@ def test_rebuild_from_manifest_uses_output_override(tmp_path, capsys, monkeypatc
 
     assert exit_code == 0
     assert f"Output   : {rebuild_output_dir}" in captured.out
-    assert (rebuild_output_dir / "test__jetson__tensorrt" / "metadata.json").exists()
-    assert (rebuild_output_dir / "test__jetson__tensorrt" / "manifest.json").exists()
+    rebuilt_dir = _expected_build_dir(
+        rebuild_output_dir,
+        "test",
+        "jetson",
+        "tensorrt",
+        "tensorrt/jetson_fp16",
+    )
+    assert (rebuilt_dir / "metadata.json").exists()
+    assert (rebuilt_dir / "manifest.json").exists()
 
 
 def test_build_dry_run_prints_json_without_creating_output_dir(tmp_path, capsys) -> None:
@@ -532,9 +631,9 @@ def test_build_dry_run_prints_json_without_creating_output_dir(tmp_path, capsys)
     assert payload["backend"] == "rknn"
     assert payload["target"] == "rk3588"
     assert payload["artifact_format"] == "rknn"
-    assert payload["artifact_path_preview"] == "builds/resnet50__rk3588__rknn/model.rknn"
-    assert payload["metadata_path_preview"] == "builds/resnet50__rk3588__rknn/metadata.json"
-    assert payload["run_summary_path_preview"] == "builds/resnet50__rk3588__rknn/run_summary.json"
+    assert payload["artifact_path_preview"] == "builds/resnet50__rk3588__rknn__rk3588_fp16/model.rknn"
+    assert payload["metadata_path_preview"] == "builds/resnet50__rk3588__rknn__rk3588_fp16/metadata.json"
+    assert payload["run_summary_path_preview"] == "builds/resnet50__rk3588__rknn__rk3588_fp16/run_summary.json"
     assert payload["lab_profile_preview"]["engine"] == "rknn"
     assert not output_dir.exists()
 
@@ -647,7 +746,13 @@ def test_run_benchmark_executes_command(tmp_path, monkeypatch, capsys) -> None:
         presets_root=repo_root / "presets",
     )
 
-    metadata_path = output_dir / "model__jetson__tensorrt" / "metadata.json"
+    metadata_path = _expected_build_dir(
+        output_dir,
+        "model",
+        "jetson",
+        "tensorrt",
+        "tensorrt/jetson_fp16",
+    ) / "metadata.json"
 
     exit_code = main(["run-benchmark", str(metadata_path)])
     captured = capsys.readouterr()
@@ -658,7 +763,9 @@ def test_run_benchmark_executes_command(tmp_path, monkeypatch, capsys) -> None:
     summary_start = lines.index("{")
     summary = json.loads("\n".join(lines[summary_start:]))
     assert summary["structured_result_path"] == "results/test.json"
-    assert summary["summary_file_path"].endswith("builds/model__jetson__tensorrt/run_summary.json")
+    assert summary["summary_file_path"].endswith(
+        "builds/model__jetson__tensorrt__jetson_fp16/run_summary.json"
+    )
     assert Path(summary["summary_file_path"]).exists()
     assert summary["status"] == "completed"
     assert summary["build_id"] == metadata.build.build_id
@@ -685,7 +792,13 @@ def test_show_lab_profile_input_prints_json(tmp_path, capsys, monkeypatch) -> No
         output_dir=output_dir,
         presets_root=repo_root / "presets",
     )
-    metadata_path = output_dir / "resnet50__rk3588__rknn" / "metadata.json"
+    metadata_path = _expected_build_dir(
+        output_dir,
+        "resnet50",
+        "rk3588",
+        "rknn",
+        "rknn/rk3588_fp16",
+    ) / "metadata.json"
 
     exit_code = main(["show-lab-profile-input", str(metadata_path)])
     captured = capsys.readouterr()
@@ -754,7 +867,13 @@ def test_show_lab_profile_command_prints_command(tmp_path, capsys, monkeypatch) 
         output_dir=output_dir,
         presets_root=repo_root / "presets",
     )
-    metadata_path = output_dir / "resnet50__rk3588__rknn" / "metadata.json"
+    metadata_path = _expected_build_dir(
+        output_dir,
+        "resnet50",
+        "rk3588",
+        "rknn",
+        "rknn/rk3588_fp16",
+    ) / "metadata.json"
 
     exit_code = main(["show-lab-profile-command", str(metadata_path)])
     captured = capsys.readouterr()
@@ -820,7 +939,13 @@ def test_inspect_build_prints_json(tmp_path, capsys, monkeypatch) -> None:
         output_dir=output_dir,
         presets_root=repo_root / "presets",
     )
-    metadata_path = output_dir / "resnet50__rk3588__rknn" / "metadata.json"
+    metadata_path = _expected_build_dir(
+        output_dir,
+        "resnet50",
+        "rk3588",
+        "rknn",
+        "rknn/rk3588_fp16",
+    ) / "metadata.json"
 
     exit_code = main(["inspect-build", str(metadata_path)])
     captured = capsys.readouterr()
@@ -859,7 +984,16 @@ def test_inspect_build_summary_output(tmp_path, capsys, monkeypatch) -> None:
             "command": "python -m inferedgelab.cli profile",
             "returncode": 0,
             "structured_result_path": "results/test.json",
-            "summary_file_path": str(output_dir / "model__jetson__tensorrt" / "run_summary.json"),
+            "summary_file_path": str(
+                _expected_build_dir(
+                    output_dir,
+                    "model",
+                    "jetson",
+                    "tensorrt",
+                    "tensorrt/jetson_fp16",
+                )
+                / "run_summary.json"
+            ),
             "status": "completed",
             "engine": "tensorrt",
             "device": "jetson",
@@ -868,7 +1002,13 @@ def test_inspect_build_summary_output(tmp_path, capsys, monkeypatch) -> None:
             "p99_ms": 15.67,
         },
     )
-    metadata_path = output_dir / "model__jetson__tensorrt" / "metadata.json"
+    metadata_path = _expected_build_dir(
+        output_dir,
+        "model",
+        "jetson",
+        "tensorrt",
+        "tensorrt/jetson_fp16",
+    ) / "metadata.json"
 
     exit_code = main(["inspect-build", "--summary", str(metadata_path)])
     captured = capsys.readouterr()
@@ -925,7 +1065,13 @@ def test_inspect_build_summary_without_run(tmp_path, capsys, monkeypatch) -> Non
         output_dir=output_dir,
         presets_root=repo_root / "presets",
     )
-    metadata_path = output_dir / "model__jetson__tensorrt" / "metadata.json"
+    metadata_path = _expected_build_dir(
+        output_dir,
+        "model",
+        "jetson",
+        "tensorrt",
+        "tensorrt/jetson_fp16",
+    ) / "metadata.json"
 
     exit_code = main(["inspect-build", "--summary", str(metadata_path)])
     captured = capsys.readouterr()
@@ -966,11 +1112,26 @@ def test_inspect_build_includes_run_summary_when_present(tmp_path, capsys, monke
             "command": "python -m inferedgelab.cli profile",
             "returncode": 0,
             "structured_result_path": "results/test.json",
-            "summary_file_path": str(output_dir / "model__jetson__tensorrt" / "run_summary.json"),
+            "summary_file_path": str(
+                _expected_build_dir(
+                    output_dir,
+                    "model",
+                    "jetson",
+                    "tensorrt",
+                    "tensorrt/jetson_fp16",
+                )
+                / "run_summary.json"
+            ),
             "status": "completed",
         },
     )
-    metadata_path = output_dir / "model__jetson__tensorrt" / "metadata.json"
+    metadata_path = _expected_build_dir(
+        output_dir,
+        "model",
+        "jetson",
+        "tensorrt",
+        "tensorrt/jetson_fp16",
+    ) / "metadata.json"
 
     exit_code = main(["inspect-build", str(metadata_path)])
     captured = capsys.readouterr()

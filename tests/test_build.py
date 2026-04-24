@@ -38,6 +38,17 @@ from inferedgeforge.schemas import (
 )
 
 
+def _expected_build_dir(
+    output_dir: Path,
+    model_stem: str,
+    target: str,
+    backend: str,
+    preset_name: str,
+) -> Path:
+    preset_suffix = preset_name.rsplit("/", 1)[-1]
+    return output_dir / f"{model_stem}__{target}__{backend}__{preset_suffix}"
+
+
 def _install_fake_rknn(monkeypatch, tmp_path: Path) -> None:
     class FakeRKNN:
         def __init__(self) -> None:
@@ -100,7 +111,7 @@ def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
         presets_root=repo_root / "presets",
     )
 
-    build_dir = output_dir / "resnet50__rk3588__rknn"
+    build_dir = _expected_build_dir(output_dir, "resnet50", "rk3588", "rknn", "rknn/rk3588_fp16")
     assert metadata.schema_version == "0.1.0"
     assert metadata.build.preset_name == "rknn/rk3588_fp16"
     assert metadata.build.backend == "rknn"
@@ -178,7 +189,13 @@ def test_resolve_rebuild_inputs_uses_manifest_values(tmp_path, monkeypatch) -> N
         presets_root=repo_root / "presets",
     )
 
-    manifest_path = output_dir / "classifier__jetson__tensorrt" / "manifest.json"
+    manifest_path = _expected_build_dir(
+        output_dir,
+        "classifier",
+        "jetson",
+        "tensorrt",
+        "tensorrt/jetson_fp16",
+    ) / "manifest.json"
     inputs = resolve_rebuild_inputs(manifest_path)
 
     assert inputs["model_path"] == model_path
@@ -205,15 +222,15 @@ def test_create_build_plan_returns_expected_preview(tmp_path) -> None:
     assert payload["target"] == "rk3588"
     assert payload["artifact_format"] == "rknn"
     assert payload["source_model_sha256"] == expected_sha256
-    assert payload["artifact_path_preview"] == "builds/resnet50__rk3588__rknn/model.rknn"
-    assert payload["metadata_path_preview"] == "builds/resnet50__rk3588__rknn/metadata.json"
-    assert payload["run_summary_path_preview"] == "builds/resnet50__rk3588__rknn/run_summary.json"
+    assert payload["artifact_path_preview"] == "builds/resnet50__rk3588__rknn__rk3588_fp16/model.rknn"
+    assert payload["metadata_path_preview"] == "builds/resnet50__rk3588__rknn__rk3588_fp16/metadata.json"
+    assert payload["run_summary_path_preview"] == "builds/resnet50__rk3588__rknn__rk3588_fp16/run_summary.json"
     assert payload["lab_profile_preview"] == {
         "engine": "rknn",
         "device": "rk3588",
         "precision": "fp16",
-        "engine_path": "builds/resnet50__rk3588__rknn/model.rknn",
-        "runtime_artifact_path": "builds/resnet50__rk3588__rknn/model.rknn",
+        "engine_path": "builds/resnet50__rk3588__rknn__rk3588_fp16/model.rknn",
+        "runtime_artifact_path": "builds/resnet50__rk3588__rknn__rk3588_fp16/model.rknn",
         "requested_batch": None,
         "requested_height": None,
         "requested_width": None,
@@ -235,9 +252,41 @@ def test_create_build_plan_preview_paths_share_build_directory(tmp_path) -> None
     metadata_path = Path(str(payload["metadata_path_preview"]))
     run_summary_path = Path(str(payload["run_summary_path_preview"]))
 
-    assert metadata_path == Path("builds/test__jetson__tensorrt/metadata.json")
-    assert run_summary_path == Path("builds/test__jetson__tensorrt/run_summary.json")
+    assert metadata_path == Path("builds/test__jetson__tensorrt__jetson_fp16/metadata.json")
+    assert run_summary_path == Path("builds/test__jetson__tensorrt__jetson_fp16/run_summary.json")
     assert artifact_path.parent == metadata_path.parent == run_summary_path.parent
+
+
+def test_run_build_uses_preset_specific_build_directories(tmp_path, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "yolov8n.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
+
+    fp16_metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    fp32_metadata = run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp32",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+
+    fp16_dir = _expected_build_dir(output_dir, "yolov8n", "jetson", "tensorrt", "tensorrt/jetson_fp16")
+    fp32_dir = _expected_build_dir(output_dir, "yolov8n", "jetson", "tensorrt", "tensorrt/jetson_fp32")
+
+    assert fp16_dir != fp32_dir
+    assert Path(fp16_metadata.artifacts[0].path).parent == fp16_dir
+    assert Path(fp32_metadata.artifacts[0].path).parent == fp32_dir
+    assert (fp16_dir / "metadata.json").exists()
+    assert (fp16_dir / "manifest.json").exists()
+    assert (fp32_dir / "metadata.json").exists()
+    assert (fp32_dir / "manifest.json").exists()
 
 
 def test_create_build_plan_invalid_preset_raises(tmp_path) -> None:
@@ -406,7 +455,7 @@ def test_run_build_rknn_toolkit_unavailable_raises(tmp_path, monkeypatch) -> Non
             presets_root=repo_root / "presets",
         )
 
-    build_dir = output_dir / "resnet50__rk3588__rknn"
+    build_dir = _expected_build_dir(output_dir, "resnet50", "rk3588", "rknn", "rknn/rk3588_fp16")
     assert not (build_dir / "model.rknn").exists()
     assert not (build_dir / "metadata.json").exists()
 
@@ -425,7 +474,7 @@ def test_run_build_rknn_stub_creates_real_artifact_and_metadata(tmp_path, monkey
         presets_root=repo_root / "presets",
     )
 
-    build_dir = output_dir / "resnet50__rk3588__rknn"
+    build_dir = _expected_build_dir(output_dir, "resnet50", "rk3588", "rknn", "rknn/rk3588_fp16")
     artifact_path = build_dir / "model.rknn"
     metadata_path = build_dir / "metadata.json"
     assert artifact_path.exists()
@@ -481,8 +530,14 @@ def test_run_build_metadata_still_maps_to_lab_profile_input(tmp_path, monkeypatc
         "engine": "rknn",
         "device": "rk3588",
         "precision": "fp16",
-        "engine_path": str(output_dir / "resnet50__rk3588__rknn" / "model.rknn"),
-        "runtime_artifact_path": str(output_dir / "resnet50__rk3588__rknn" / "model.rknn"),
+        "engine_path": str(
+            _expected_build_dir(output_dir, "resnet50", "rk3588", "rknn", "rknn/rk3588_fp16")
+            / "model.rknn"
+        ),
+        "runtime_artifact_path": str(
+            _expected_build_dir(output_dir, "resnet50", "rk3588", "rknn", "rknn/rk3588_fp16")
+            / "model.rknn"
+        ),
         "requested_batch": None,
         "requested_height": None,
         "requested_width": None,
@@ -636,7 +691,9 @@ def test_load_run_summary_if_present_returns_none_when_missing(tmp_path) -> None
         ),
         artifacts=[
             ArtifactRecord(
-                path=str(tmp_path / "builds" / "test__jetson__tensorrt" / "model.engine"),
+                path=str(
+                    tmp_path / "builds" / "test__jetson__tensorrt__jetson_fp16" / "model.engine"
+                ),
                 format="engine",
                 role="deployment_model",
             )
@@ -645,13 +702,13 @@ def test_load_run_summary_if_present_returns_none_when_missing(tmp_path) -> None
     )
 
     assert _find_run_summary_path(metadata) == (
-        tmp_path / "builds" / "test__jetson__tensorrt" / "run_summary.json"
+        tmp_path / "builds" / "test__jetson__tensorrt__jetson_fp16" / "run_summary.json"
     )
     assert _load_run_summary_if_present(metadata) is None
 
 
 def test_inspect_build_metadata_includes_run_summary_when_present(tmp_path) -> None:
-    build_dir = tmp_path / "builds" / "test__jetson__tensorrt"
+    build_dir = tmp_path / "builds" / "test__jetson__tensorrt__jetson_fp16"
     summary_path = build_dir / "run_summary.json"
     summary_path.parent.mkdir(parents=True)
     summary_path.write_text(
@@ -795,7 +852,7 @@ def test_run_lab_profile_success_returns_execution_summary(monkeypatch) -> None:
         ),
         artifacts=[
             ArtifactRecord(
-                path="builds/test__jetson__tensorrt/model.engine",
+                path="builds/test__jetson__tensorrt__jetson_fp16/model.engine",
                 format="engine",
                 role="deployment_model",
             )
@@ -807,8 +864,8 @@ def test_run_lab_profile_success_returns_execution_summary(monkeypatch) -> None:
                 engine="tensorrt",
                 device="jetson",
                 precision="fp16",
-                engine_path="builds/test__jetson__tensorrt/model.engine",
-                runtime_artifact_path="builds/test__jetson__tensorrt/model.engine",
+                engine_path="builds/test__jetson__tensorrt__jetson_fp16/model.engine",
+                runtime_artifact_path="builds/test__jetson__tensorrt__jetson_fp16/model.engine",
             ),
         ),
     )
@@ -817,7 +874,8 @@ def test_run_lab_profile_success_returns_execution_summary(monkeypatch) -> None:
 
     assert payload["command"] == (
         "python -m inferedgelab.cli profile models/test.onnx --engine tensorrt "
-        "--engine-path builds/test__jetson__tensorrt/model.engine --device-name jetson --precision fp16"
+        "--engine-path builds/test__jetson__tensorrt__jetson_fp16/model.engine "
+        "--device-name jetson --precision fp16"
     )
     assert payload["returncode"] == 0
     assert payload["raw_report_path"] == "reports/test.json"
@@ -827,7 +885,7 @@ def test_run_lab_profile_success_returns_execution_summary(monkeypatch) -> None:
 
 
 def test_write_run_summary_persists_json_in_build_directory(tmp_path) -> None:
-    build_dir = tmp_path / "builds" / "test__jetson__tensorrt"
+    build_dir = tmp_path / "builds" / "test__jetson__tensorrt__jetson_fp16"
     metadata = BuildMetadata(
         schema_version="0.1.0",
         build=BuildInfo(
