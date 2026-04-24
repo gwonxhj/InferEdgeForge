@@ -49,6 +49,18 @@ def test_load_preset_by_id_reads_example_preset() -> None:
     assert preset.build_options["precision"] == "fp16"
 
 
+def test_load_tensorrt_fp32_preset() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+
+    preset = load_preset_by_id("tensorrt/jetson_fp32", presets_root=repo_root / "presets")
+
+    assert preset.backend == "tensorrt"
+    assert preset.target == "jetson"
+    assert preset.artifact_format == "engine"
+    assert preset.build_options["precision"] == "fp32"
+    assert preset.build_options["workspace_mb"] == 2048
+
+
 def test_load_preset_by_id_missing_file_raises() -> None:
     repo_root = Path(__file__).resolve().parents[1]
 

@@ -80,6 +80,8 @@ python -m inferedgeforge.cli show-compare-command \
 
 If a second Jetson-oriented TensorRT preset is being compared instead, replace `--right` with the actual ready preset name used during validation.
 
+After validating `tensorrt/jetson_fp16`, a matching `tensorrt/jetson_fp32` build and benchmark can be used as the second ready variant so `show-compare-command` can preview an FP16 vs FP32 TensorRT compare handoff on the same source model.
+
 ### 7. Rebuild From Manifest
 
 ```bash

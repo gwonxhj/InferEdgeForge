@@ -59,6 +59,7 @@ def test_list_presets_prints_expected_ids(capsys) -> None:
     assert captured.out.strip().splitlines() == [
         "rknn/rk3588_fp16",
         "tensorrt/jetson_fp16",
+        "tensorrt/jetson_fp32",
     ]
 
 
