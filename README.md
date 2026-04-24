@@ -42,7 +42,7 @@ InferEdgeLab is the analysis side. It consumes those artifacts and metadata to e
 
 Forge can prepare the compare handoff by showing ready variants and previewing an `inferedgelab compare` command when persisted structured result paths are available. Lab still owns the actual compare execution and result interpretation. This separation is deliberate: build generation, execution trace capture, and deployment evaluation are related, but they should not be collapsed into one tool.
 
-Accuracy evidence can also be attached downstream in InferEdgeLab with task-plus-metrics payloads. The current Jetson FP16 vs FP32 validation record remains latency-only until matching accuracy evidence is attached for that same evaluation context.
+Accuracy evidence can also be attached downstream in InferEdgeLab with task-plus-metrics payloads. That wiring has been smoke-tested with existing InferEdgeLab payload examples, while the recorded Jetson FP16 vs FP32 validation remains latency-only until task-matched TensorRT accuracy evidence is attached for that same evaluation context.
 
 ## Example Output
 

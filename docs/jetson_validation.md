@@ -220,6 +220,28 @@ Record observed Jetson results here after execution.
 
 - After that evidence is attached downstream in InferEdgeLab, compare can be rerun with latency and accuracy evidence together. That did not happen in this Jetson validation record.
 
+#### Accuracy-aware workflow smoke test
+
+- An `enrich-pair` smoke test was run to confirm that accuracy payload attachment and accuracy-aware compare wiring work end to end.
+- Command used:
+
+`python -m inferedgelab.cli enrich-pair --base-result ~/InferEdgeForge/results/yolov8n.onnx__tensorrt__gpu__fp16__b1__h640w640__20260424-035442.json --base-accuracy-json ~/InferEdgeLab/benchmarks/rknn_accuracy_payloads/yolov8n_fp16_detection_accuracy.json --new-result ~/InferEdgeForge/results/yolov8n.onnx__tensorrt__gpu__fp32__b1__h640w640__20260424-035938.json --new-accuracy-json ~/InferEdgeLab/benchmarks/rknn_accuracy_payloads/yolov8n_int8_detection_accuracy.json --out-dir ~/InferEdgeLab/results`
+
+- Enriched results produced:
+  - `/home/risenano01/InferEdgeLab/results/yolov8n.onnx__tensorrt__gpu__fp16__b1__h640w640__20260424-131747-658979.json`
+  - `/home/risenano01/InferEdgeLab/results/yolov8n.onnx__tensorrt__gpu__fp32__b1__h640w640__20260424-131747-660732.json`
+- The resulting accuracy-aware compare surfaced:
+  - `Accuracy judge: improvement`
+  - `Primary metric: map50`
+  - `map50 delta: +1.86pp`
+  - `f1_score delta: -0.51pp`
+  - `precision delta: -0.84pp`
+  - `recall delta: -0.14pp`
+  - `Overall judgement: tradeoff_slower`
+  - `Trade-off risk: not_beneficial`
+- This remains a workflow smoke test only. The attached accuracy payloads came from existing RKNN evidence examples, not from task-matched TensorRT evaluation on the Jetson FP16 and FP32 artifacts.
+- Because of that provenance mismatch, this smoke test proves that the accuracy-aware attach and compare flow works, but it does not upgrade the official Jetson TensorRT validation result beyond latency-only.
+
 ### Workflow Status Snapshot
 
 | Item | Observed Value |

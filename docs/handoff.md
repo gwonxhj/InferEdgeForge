@@ -58,6 +58,8 @@ InferEdgeLab can attach that evidence to individual results or to a compare pair
 
 After those enrich steps, downstream compare review can expand from latency-only interpretation into latency-plus-accuracy trade-off interpretation. Forge still remains responsible only for artifact generation, traceability, and handoff preparation.
 
+That wiring has been smoke-tested with existing InferEdgeLab payload examples, confirming that compare can surface an accuracy-aware table, a primary metric delta, and an updated accuracy judge after evidence is attached. The provenance of that payload still matters: evidence captured from a different backend, device, or evaluation protocol should not be treated as an official accuracy basis for another deployment result.
+
 ## Handoff Workflow
 
 1. Run `build --dry-run` to preview the expected build plan without creating files.
