@@ -33,7 +33,9 @@ This roadmap defines the early implementation path for InferEdgeForge as a repro
 - [x] Standardize artifact naming for TensorRT outputs
 - [x] Emit metadata consistent with the RKNN build contract
 - [x] Add backend-specific tests without breaking the common CLI surface
-- [ ] Replace the placeholder TensorRT artifact path with real engine generation
+- [x] Replace the placeholder TensorRT artifact path with `trtexec`-based engine generation
+- [x] Validate TensorRT FP16 and FP32 builds on Jetson hardware
+- [x] Record Jetson TensorRT validation results with artifact and benchmark traceability
 
 ## Phase 5: Validation Handoff to InferEdgeLab
 
@@ -45,7 +47,12 @@ This roadmap defines the early implementation path for InferEdgeForge as a repro
 - [x] Add `run-benchmark` to execute the downstream Lab profile command from metadata
 - [x] Persist Forge-side `run_summary.json` output after downstream execution
 - [x] Include persisted run summaries in `inspect-build`
+- [x] Add experiment-level build listing and compare candidate discovery
+- [x] Add compare command preview from persisted structured result paths
+- [x] Document accuracy evidence handoff through InferEdgeLab enrich commands
 - [ ] Expand handoff coverage for additional downstream validation workflows
+- [ ] Add task-matched TensorRT accuracy evidence collection guidance and examples
+- [ ] Close the loop on accuracy-aware TensorRT compare workflows
 
 ## Phase 6: Developer Experience Improvements
 
@@ -54,9 +61,12 @@ This roadmap defines the early implementation path for InferEdgeForge as a repro
 - [x] Expand test coverage across presets, metadata, builders, handoff, and execution paths
 - [x] Add example presets and sample workflows for contributors
 - [ ] Improve packaging, release hygiene, and local development setup
+- [ ] Expand broader device coverage beyond the current validated paths
 
 ## Notes
 
 - `build` remains the primary contract of the project.
 - Metadata quality is a core engineering concern, not an optional add-on.
-- InferEdgeForge can execute the downstream Lab profile command from metadata, but validation and deployment decision analysis remain the responsibility of InferEdgeLab.
+- InferEdgeForge builds and traces artifacts, including fingerprints, preset snapshots, manifests, and persisted run summaries.
+- InferEdgeLab profiles, compares, and can attach accuracy evidence through downstream enrich commands.
+- The current Jetson validation proves latency-oriented FP16/FP32 handoff and compare flow, not a full accuracy-aware deployment judgement.
