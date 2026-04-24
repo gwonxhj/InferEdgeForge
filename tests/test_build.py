@@ -306,7 +306,7 @@ def test_tensorrt_builder_runs_trtexec_and_returns_engine_artifact(tmp_path, mon
     assert f"--onnx={model_path}" in command
     assert f"--saveEngine={artifact_path}" in command
     assert "--fp16" in command
-    assert "--workspace=2048" in command
+    assert "--memPoolSize=workspace:2048" in command
     assert calls[0][1] == {"text": True, "capture_output": True}
     assert artifact_path.exists()
     assert result.backend == "tensorrt"
