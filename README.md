@@ -275,7 +275,7 @@ New here? See [docs/quickstart.md](docs/quickstart.md) for a practical end-to-en
 
 See [examples/README.md](examples/README.md) for minimal local build flow, metadata inspection, InferEdgeLab handoff, and preset-oriented compare workflow examples.
 
-For a hardware-oriented validation record and Jetson TensorRT checklist, see [docs/jetson_validation.md](docs/jetson_validation.md).
+For a hardware-oriented validation record, Jetson TensorRT checklist, and recorded FP16 vs FP32 results, see [docs/jetson_validation.md](docs/jetson_validation.md).
 
 Use an editable install during development:
 
