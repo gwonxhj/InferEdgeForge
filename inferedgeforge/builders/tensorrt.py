@@ -20,7 +20,7 @@ class TensorRTBuilder(BaseBuilder):
     def _workspace_flags(self, request: BuildRequest) -> list[str]:
         workspace_mb = request.preset.build_options.get("workspace_mb")
         if isinstance(workspace_mb, int) and workspace_mb > 0:
-            return [f"--workspace={workspace_mb}"]
+            return [f"--memPoolSize=workspace:{workspace_mb}"]
         return []
 
     def _build_trtexec_command(self, request: BuildRequest, artifact_path: Path) -> list[str]:
