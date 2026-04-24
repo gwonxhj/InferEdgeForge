@@ -50,6 +50,7 @@ This roadmap defines the early implementation path for InferEdgeForge as a repro
 - [x] Add experiment-level build listing and compare candidate discovery
 - [x] Add compare command preview from persisted structured result paths
 - [x] Document accuracy evidence handoff through InferEdgeLab enrich commands
+- [x] Validate manifest-based rebuilds on Jetson as functionally reproducible and benchmarkable
 - [ ] Expand handoff coverage for additional downstream validation workflows
 - [ ] Add task-matched TensorRT accuracy evidence collection guidance and examples
 - [ ] Close the loop on accuracy-aware TensorRT compare workflows
@@ -70,3 +71,4 @@ This roadmap defines the early implementation path for InferEdgeForge as a repro
 - InferEdgeForge builds and traces artifacts, including fingerprints, preset snapshots, manifests, and persisted run summaries.
 - InferEdgeLab profiles, compares, and can attach accuracy evidence through downstream enrich commands.
 - The current Jetson validation proves latency-oriented FP16/FP32 handoff and compare flow, not a full accuracy-aware deployment judgement.
+- Jetson rebuild validation currently supports functional reproducibility of the TensorRT recipe, not guaranteed bitwise identity of serialized engine hashes.

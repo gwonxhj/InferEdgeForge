@@ -125,7 +125,7 @@ Optional rebuild destination override:
 ```bash
 python -m inferedgeforge.cli rebuild-from-manifest \
   builds/yolov8n__jetson__tensorrt__jetson_fp16/manifest.json \
-  --output rebuilt
+  --output rebuilds
 ```
 
 ## Validation Checklist
@@ -139,7 +139,7 @@ python -m inferedgeforge.cli rebuild-from-manifest \
 - [x] `structured_result_path` persisted
 - [x] compare candidate discovery worked
 - [x] compare command preview worked
-- [ ] `rebuild-from-manifest` succeeded
+- [x] `rebuild-from-manifest` succeeded
 
 ## Result Record
 
@@ -174,6 +174,42 @@ Record observed Jetson results here after execution.
 | Run summary path | `builds/yolov8n__jetson__tensorrt__jetson_fp32/run_summary.json` |
 | Raw report path | `reports/yolov8n__tensorrt_gpu__b1__h640w640__r100__20260424-035938.json` |
 | Structured result path | `results/yolov8n.onnx__tensorrt__gpu__fp32__b1__h640w640__20260424-035938.json` |
+
+### Rebuild From Manifest Validation
+
+| Item | Observed Value |
+| --- | --- |
+| Rebuild command | `python -m inferedgeforge.cli rebuild-from-manifest builds/yolov8n__jetson__tensorrt__jetson_fp16/manifest.json --output rebuilds` |
+| Rebuild output root | `rebuilds` |
+| Rebuild metadata path | `rebuilds/yolov8n__jetson__tensorrt__jetson_fp16/metadata.json` |
+| Rebuild engine path | `rebuilds/yolov8n__jetson__tensorrt__jetson_fp16/model.engine` |
+| Rebuild run summary path | `rebuilds/yolov8n__jetson__tensorrt__jetson_fp16/run_summary.json` |
+| Rebuild raw report path | `reports/yolov8n__tensorrt_gpu__b1__h640w640__r100__20260424-134946.json` |
+| Rebuild structured result path | `results/yolov8n.onnx__tensorrt__gpu__fp16__b1__h640w640__20260424-134946.json` |
+| Rebuild benchmark status | `success` |
+
+### Rebuild SHA Comparison
+
+| Item | Observed Value |
+| --- | --- |
+| Original FP16 engine SHA-256 | `29484d824f5be2dfd3e1e801e927298f15f8e77af785711ac6fd429a7445ea22` |
+| Rebuilt FP16 engine SHA-256 | `f667c6dc64e2030b6c8a2904c918d1402ce0ef2fee739aeff94553bee2161f3e` |
+| SHA comparison | `different` |
+
+### Rebuild Benchmark Result
+
+| Item | Observed Value |
+| --- | --- |
+| `returncode` | `0` |
+| `preset_name` | `tensorrt/jetson_fp16` |
+| `backend` | `tensorrt` |
+| `target` | `jetson` |
+| `source_model.path` | `models/onnx/yolov8n.onnx` |
+| `source_model.sha256` | `4b31ebf8213f2971b8136f7ccca475e27f40559a14bc27e0d8a531a933273eb7` |
+| `primary_artifact.path` | `rebuilds/yolov8n__jetson__tensorrt__jetson_fp16/model.engine` |
+| `primary_artifact.sha256` | `f667c6dc64e2030b6c8a2904c918d1402ce0ef2fee739aeff94553bee2161f3e` |
+| `summary_file_path` | `rebuilds/yolov8n__jetson__tensorrt__jetson_fp16/run_summary.json` |
+| `status` | `completed` |
 
 ### Compare Result
 
@@ -250,7 +286,7 @@ Record observed Jetson results here after execution.
 | `show-compare-candidates` | `success` |
 | `show-compare-command` | `success` |
 | Compare execution | `success` |
-| `rebuild-from-manifest` | `TBD` |
+| `rebuild-from-manifest` | `success` |
 
 ## Issues / Follow-Up Notes
 
@@ -264,6 +300,9 @@ Record observed Jetson results here after execution.
 - Accuracy evidence was not attached for these TensorRT results, so the compare outcome should not be read as an accuracy-aware deployment decision.
 - Existing RKNN accuracy payload examples are useful for schema reference only here; they were not reused for the TensorRT Jetson results.
 - Accuracy data was not collected in this pass, so the compare interpretation is latency-only and should not be treated as a full deployment-quality judgement.
+- `rebuild-from-manifest` successfully regenerated a runnable and benchmarkable TensorRT engine in a separate output root.
+- The rebuilt TensorRT engine SHA-256 differed from the original engine SHA-256. That is recorded as a known limitation of TensorRT engine serialization rather than a rebuild failure.
+- This validation therefore supports functional reproducibility of the build recipe, not bitwise reproducibility of the serialized engine artifact.
 - If rebuild behavior differs across environments, record whether the source ONNX path, preset availability, or TensorRT toolchain layout changed.
 
 ## Conclusion
@@ -271,6 +310,8 @@ Record observed Jetson results here after execution.
 - Jetson TensorRT FP16 and FP32 engine build validation completed successfully on a Jetson Orin environment.
 - Forge traceability was also validated end-to-end through `metadata.json`, `manifest.json`, artifact/source SHA-256 recording, and persisted `run_summary.json`.
 - InferEdgeLab handoff through `run-benchmark`, compare candidate discovery, compare command preview, and actual `compare` execution was completed successfully.
+- Manifest-based rebuild also succeeded on Jetson, and the rebuilt FP16 TensorRT engine remained runnable and benchmarkable in a separate `rebuilds/` output root.
 - In this run, FP32 was effectively neutral on mean latency versus FP16 but regressed materially on P99 latency, so the observed trade-off was `not_beneficial`.
 - Accuracy remained `unknown` in the compare output, so this should be read as a latency-only trade-off result rather than a full accuracy-versus-performance conclusion.
-- Remaining work: record the exact JetPack version, execute `rebuild-from-manifest` on Jetson if rebuild reproducibility needs to be documented in the same level of detail, and attach task-matched TensorRT accuracy evidence through InferEdgeLab if an accuracy-aware compare is needed.
+- Original and rebuilt TensorRT engine hashes differed, so this should be interpreted as functional reproducibility of the same recipe rather than guaranteed bitwise reproducibility of the serialized engine artifact.
+- Remaining work: record the exact JetPack version and attach task-matched TensorRT accuracy evidence through InferEdgeLab if an accuracy-aware compare is needed.
