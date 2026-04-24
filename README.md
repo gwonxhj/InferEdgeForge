@@ -371,4 +371,6 @@ The current inspection and experiment flow supports full JSON review, a human-re
 
 The TensorRT path now includes `trtexec`-based real engine generation, and a Jetson Orin validation pass has been recorded for YOLOv8n FP16 and FP32 build, benchmark, and compare handoff in [docs/jetson_validation.md](docs/jetson_validation.md). That Jetson result is still intentionally scoped as a latency-only compare because task-matched accuracy evidence has not yet been attached to those TensorRT results.
 
+Jetson validation also includes a manifest-based rebuild smoke test that reproduced a runnable and benchmarkable TensorRT engine, while explicitly noting that TensorRT engine hashes are not expected to remain bitwise stable across rebuilds.
+
 The repository should still be read as a focused foundation rather than a claim that every TensorRT environment or deployment workflow is production-complete. Backend-specific toolchains remain environment-dependent, broader device coverage is still open work, and accuracy-aware TensorRT comparison remains downstream work rather than a completed Forge feature.
