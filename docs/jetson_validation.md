@@ -21,7 +21,7 @@ This document is intentionally conservative. Only confirmed execution results sh
 - Python version: `3.10.12`
 - Python environment: `yolo_env`
 - `trtexec` path: `/usr/src/tensorrt/bin/trtexec`
-- Execution date: `TBD`
+- Execution date: `2026-04-24`
 - Additional environment notes: `TBD`
 
 ## Inputs Used

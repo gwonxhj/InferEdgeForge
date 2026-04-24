@@ -67,7 +67,7 @@ This is a simplified example of the structured metadata emitted after build. The
   },
   "artifacts": [
     {
-      "path": "builds/test__jetson__tensorrt/model.engine",
+      "path": "builds/test__jetson__tensorrt__jetson_fp16/model.engine",
       "format": "engine",
       "role": "deployment_model",
       "sha256": "..."
@@ -96,24 +96,24 @@ The metadata records both build identity and build intent. If a preset changes l
 
 ### 2. Lab Profile Input
 
-This is the output of `python -m inferedgeforge.cli show-lab-profile-input builds/test__jetson__tensorrt/metadata.json`.
+This is the output of `python -m inferedgeforge.cli show-lab-profile-input builds/test__jetson__tensorrt__jetson_fp16/metadata.json`.
 
 ```json
 {
   "engine": "tensorrt",
   "device": "jetson",
   "precision": "fp16",
-  "engine_path": "builds/test__jetson__tensorrt/model.engine",
-  "runtime_artifact_path": "builds/test__jetson__tensorrt/model.engine"
+  "engine_path": "builds/test__jetson__tensorrt__jetson_fp16/model.engine",
+  "runtime_artifact_path": "builds/test__jetson__tensorrt__jetson_fp16/model.engine"
 }
 ```
 
 ### 3. Lab Profile Command
 
-This is the output of `python -m inferedgeforge.cli show-lab-profile-command builds/test__jetson__tensorrt/metadata.json`.
+This is the output of `python -m inferedgeforge.cli show-lab-profile-command builds/test__jetson__tensorrt__jetson_fp16/metadata.json`.
 
 ```bash
-python -m inferedgelab.cli profile models/test.onnx --engine tensorrt --engine-path builds/test__jetson__tensorrt/model.engine --device-name jetson --precision fp16
+python -m inferedgelab.cli profile models/test.onnx --engine tensorrt --engine-path builds/test__jetson__tensorrt__jetson_fp16/model.engine --device-name jetson --precision fp16
 ```
 
 This command can be executed directly to run validation in InferEdgeLab.
@@ -127,7 +127,7 @@ After `run-benchmark`, Forge persists a summary next to the build metadata.
   "command": "python -m inferedgelab.cli profile models/test.onnx --engine tensorrt ...",
   "returncode": 0,
   "structured_result_path": "results/test.json",
-  "summary_file_path": "builds/test__jetson__tensorrt/run_summary.json",
+  "summary_file_path": "builds/test__jetson__tensorrt__jetson_fp16/run_summary.json",
   "status": "completed",
   "build_id": "test-tensorrt-jetson_fp16-20260423T120000Z",
   "preset_name": "tensorrt/jetson_fp16",
@@ -139,7 +139,7 @@ After `run-benchmark`, Forge persists a summary next to the build metadata.
     "sha256": "..."
   },
   "primary_artifact": {
-    "path": "builds/test__jetson__tensorrt/model.engine",
+    "path": "builds/test__jetson__tensorrt__jetson_fp16/model.engine",
     "format": "engine",
     "role": "deployment_model",
     "sha256": "..."
@@ -230,16 +230,16 @@ Use read-only inspection commands to review generated metadata and handoff infor
 
 ```bash
 python -m inferedgeforge.cli inspect-build --summary \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 
 python -m inferedgeforge.cli inspect-build \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 
 python -m inferedgeforge.cli show-lab-profile-input \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 
 python -m inferedgeforge.cli show-lab-profile-command \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 ```
 
 `inspect-build --summary` gives a concise human-readable view of build identity, preset, source model fingerprint, artifact fingerprint, run status, and the next step. The default `inspect-build` command preserves the full JSON inspection view. If a persisted `run_summary.json` exists in the build directory, inspection includes that downstream execution context.
@@ -248,7 +248,7 @@ Use `run-benchmark` to execute the downstream InferEdgeLab profile flow from `me
 
 ```bash
 python -m inferedgeforge.cli run-benchmark \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 ```
 
 This command uses the stored handoff metadata to execute the downstream Lab profile step, then prints and saves a Forge-side execution summary as `run_summary.json`. The summary includes command output paths plus build, preset, source model, and primary artifact context.
@@ -302,7 +302,7 @@ The MVP is focused on establishing a reliable build contract rather than broad b
 - Structured metadata generation for every build
 - Initial builder abstraction for multiple backends
 - First concrete backend path for RKNN
-- Minimal TensorRT artifact path for local workflow validation
+- `trtexec`-based TensorRT engine generation for Jetson-oriented presets
 - Output layout suitable for validation handoff into InferEdgeLab
 - Read-only inspection commands for metadata and Lab handoff information
 - Source model and artifact SHA-256 fingerprints in metadata
@@ -369,4 +369,6 @@ InferEdgeForge has an initial MVP workflow in place. It can discover presets, pr
 
 The current inspection and experiment flow supports full JSON review, a human-readable `inspect-build --summary` view, source-model build grouping with `list-builds`, compare-ready discovery with `show-compare-candidates`, and compare command preview with `show-compare-command`.
 
-The repository should still be read as a focused foundation rather than a claim that every backend pipeline is production-complete. Backend-specific toolchains, real TensorRT engine generation, broader device coverage, and validation analysis remain staged work.
+The TensorRT path now includes `trtexec`-based real engine generation, and a Jetson Orin validation pass has been recorded for YOLOv8n FP16 and FP32 build, benchmark, and compare handoff in [docs/jetson_validation.md](docs/jetson_validation.md). That Jetson result is still intentionally scoped as a latency-only compare because task-matched accuracy evidence has not yet been attached to those TensorRT results.
+
+The repository should still be read as a focused foundation rather than a claim that every TensorRT environment or deployment workflow is production-complete. Backend-specific toolchains remain environment-dependent, broader device coverage is still open work, and accuracy-aware TensorRT comparison remains downstream work rather than a completed Forge feature.
