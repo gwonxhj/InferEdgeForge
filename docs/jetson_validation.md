@@ -42,14 +42,14 @@ python -m inferedgeforge.cli build \
 
 ```bash
 python -m inferedgeforge.cli inspect-build --summary \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 ```
 
 ### 3. Run Benchmark
 
 ```bash
 python -m inferedgeforge.cli run-benchmark \
-  builds/test__jetson__tensorrt/metadata.json
+  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
 ```
 
 ### 4. List Builds
@@ -86,14 +86,14 @@ After validating `tensorrt/jetson_fp16`, a matching `tensorrt/jetson_fp32` build
 
 ```bash
 python -m inferedgeforge.cli rebuild-from-manifest \
-  builds/test__jetson__tensorrt/manifest.json
+  builds/test__jetson__tensorrt__jetson_fp16/manifest.json
 ```
 
 Optional rebuild destination override:
 
 ```bash
 python -m inferedgeforge.cli rebuild-from-manifest \
-  builds/test__jetson__tensorrt/manifest.json \
+  builds/test__jetson__tensorrt__jetson_fp16/manifest.json \
   --output rebuilt
 ```
 
@@ -115,10 +115,10 @@ Record observed Jetson results here after execution.
 
 | Item | Expected Value | Observed Value |
 | --- | --- | --- |
-| Engine artifact path | `builds/test__jetson__tensorrt/model.engine` | `TBD` |
-| Metadata path | `builds/test__jetson__tensorrt/metadata.json` | `TBD` |
-| Manifest path | `builds/test__jetson__tensorrt/manifest.json` | `TBD` |
-| Run summary path | `builds/test__jetson__tensorrt/run_summary.json` | `TBD` |
+| Engine artifact path | `builds/test__jetson__tensorrt__jetson_fp16/model.engine` | `TBD` |
+| Metadata path | `builds/test__jetson__tensorrt__jetson_fp16/metadata.json` | `TBD` |
+| Manifest path | `builds/test__jetson__tensorrt__jetson_fp16/manifest.json` | `TBD` |
+| Run summary path | `builds/test__jetson__tensorrt__jetson_fp16/run_summary.json` | `TBD` |
 | Structured result path | `실기 결과 입력 예정` | `TBD` |
 | Benchmark success | `Yes/No` | `TBD` |
 | Compare candidate discovery | `Yes/No` | `TBD` |

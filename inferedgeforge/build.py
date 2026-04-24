@@ -45,6 +45,18 @@ def _compute_file_sha256(path: str | Path) -> str:
     return digest.hexdigest()
 
 
+def _preset_suffix(preset_name: str) -> str:
+    raw_suffix = preset_name.rsplit("/", 1)[-1]
+    safe_suffix = re.sub(r"[^A-Za-z0-9._-]+", "_", raw_suffix).strip("_")
+    return safe_suffix or "preset"
+
+
+def _build_dir_name(model_path: Path, target: str, backend: str, preset_name: str) -> str:
+    return (
+        f"{model_path.stem}__{target}__{backend}__{_preset_suffix(preset_name)}"
+    )
+
+
 def _extract_requested_shape_from_preset_metadata(
     preset_metadata: dict[str, object] | None,
 ) -> tuple[int | None, int | None, int | None]:
@@ -288,25 +300,29 @@ def rebuild_from_manifest(
     )
 
 
-def _preview_build_dir(model_path: Path, target: str, backend: str) -> Path:
-    return Path("builds") / f"{model_path.stem}__{target}__{backend}"
+def _preview_build_dir(model_path: Path, target: str, backend: str, preset_name: str) -> Path:
+    return Path("builds") / _build_dir_name(model_path, target, backend, preset_name)
 
 
 def _preview_artifact_path(
     model_path: Path,
     target: str,
     backend: str,
+    preset_name: str,
     artifact_format: str,
 ) -> Path:
-    return _preview_build_dir(model_path, target, backend) / f"model.{artifact_format}"
+    return _preview_build_dir(model_path, target, backend, preset_name) / f"model.{artifact_format}"
 
+def _preview_metadata_path(model_path: Path, target: str, backend: str, preset_name: str) -> Path:
+    return _preview_build_dir(model_path, target, backend, preset_name) / "metadata.json"
 
-def _preview_metadata_path(model_path: Path, target: str, backend: str) -> Path:
-    return _preview_build_dir(model_path, target, backend) / "metadata.json"
-
-
-def _preview_run_summary_path(model_path: Path, target: str, backend: str) -> Path:
-    return _preview_build_dir(model_path, target, backend) / "run_summary.json"
+def _preview_run_summary_path(
+    model_path: Path,
+    target: str,
+    backend: str,
+    preset_name: str,
+) -> Path:
+    return _preview_build_dir(model_path, target, backend, preset_name) / "run_summary.json"
 
 
 def create_build_plan(
@@ -323,10 +339,16 @@ def create_build_plan(
         model_path=source_path,
         target=preset.target,
         backend=preset.backend,
+        preset_name=preset.name,
         artifact_format=preset.artifact_format,
     )
-    metadata_path = _preview_metadata_path(source_path, preset.target, preset.backend)
-    run_summary_path = _preview_run_summary_path(source_path, preset.target, preset.backend)
+    metadata_path = _preview_metadata_path(source_path, preset.target, preset.backend, preset.name)
+    run_summary_path = _preview_run_summary_path(
+        source_path,
+        preset.target,
+        preset.backend,
+        preset.name,
+    )
     metadata = create_build_metadata(
         model_path=source_path,
         preset_name=preset.name,
@@ -998,7 +1020,12 @@ def run_build(
     output_root = Path(output_dir)
     output_root.mkdir(parents=True, exist_ok=True)
 
-    build_dir = output_root / f"{source_path.stem}__{preset.target}__{preset.backend}"
+    build_dir = output_root / _build_dir_name(
+        source_path,
+        preset.target,
+        preset.backend,
+        preset.name,
+    )
     build_dir.mkdir(parents=True, exist_ok=True)
 
     request = BuildRequest(
