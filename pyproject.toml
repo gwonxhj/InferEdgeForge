@@ -16,9 +16,10 @@ dependencies = []
 
 [project.scripts]
 inferedgeforge = "inferedgeforge.cli:main"
+inferedgelab = "inferedgelab.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["inferedgeforge*"]
+include = ["inferedgeforge*", "inferedgelab*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

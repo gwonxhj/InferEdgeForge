@@ -1,0 +1,2 @@
+"""InferEdgeLab package."""
+
