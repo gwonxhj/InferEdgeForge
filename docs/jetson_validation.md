@@ -10,17 +10,27 @@ This document is intentionally conservative. Only confirmed execution results sh
 
 ## Validation Environment
 
-- Jetson board model: `TBD`
+- OS: `Ubuntu 22.04.5 LTS`
+- Kernel: `Linux 5.15.148-tegra`
+- Architecture: `aarch64`
+- Jetson board model: `Jetson Orin series (exact SKU TBD)`
 - JetPack version: `TBD`
-- TensorRT / `trtexec`: `TBD`
-- Python version: `TBD`
-- Execution date: `실기 결과 입력 예정`
+- GPU device name from `trtexec`: `Orin`
+- TensorRT version: `10.3.0`
+- TensorRT package version: `10.3.0.30-1+cuda12.5`
+- Python version: `3.10.12`
+- Python environment: `yolo_env`
+- `trtexec` path: `/usr/src/tensorrt/bin/trtexec`
+- Execution date: `TBD`
 - Additional environment notes: `TBD`
 
 ## Inputs Used
 
-- Source ONNX path: `models/test.onnx`
-- Preset name: `tensorrt/jetson_fp16`
+- Source ONNX path: `models/onnx/yolov8n.onnx`
+- Source SHA-256: `4b31ebf8213f2971b8136f7ccca475e27f40559a14bc27e0d8a531a933273eb7`
+- Presets validated:
+  - `tensorrt/jetson_fp16`
+  - `tensorrt/jetson_fp32`
 - Output root: `builds`
 - Manifest used: `Yes`
 - Rebuild destination override: `TBD`
@@ -33,97 +43,170 @@ Run the validation steps in this order on the Jetson system.
 
 ```bash
 python -m inferedgeforge.cli build \
-  --model models/test.onnx \
+  --model models/onnx/yolov8n.onnx \
   --preset tensorrt/jetson_fp16 \
   --output builds
 ```
 
-### 2. Inspect Build Summary
+### 2. Build FP32
+
+```bash
+python -m inferedgeforge.cli build \
+  --model models/onnx/yolov8n.onnx \
+  --preset tensorrt/jetson_fp32 \
+  --output builds
+```
+
+### 3. Inspect Build Summary
 
 ```bash
 python -m inferedgeforge.cli inspect-build --summary \
-  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
+  builds/yolov8n__jetson__tensorrt__jetson_fp16/metadata.json
 ```
 
-### 3. Run Benchmark
+```bash
+python -m inferedgeforge.cli inspect-build --summary \
+  builds/yolov8n__jetson__tensorrt__jetson_fp32/metadata.json
+```
+
+### 4. Run Benchmark
 
 ```bash
 python -m inferedgeforge.cli run-benchmark \
-  builds/test__jetson__tensorrt__jetson_fp16/metadata.json
+  builds/yolov8n__jetson__tensorrt__jetson_fp16/metadata.json
 ```
 
-### 4. List Builds
+```bash
+python -m inferedgeforge.cli run-benchmark \
+  builds/yolov8n__jetson__tensorrt__jetson_fp32/metadata.json
+```
+
+### 5. List Builds
 
 ```bash
 python -m inferedgeforge.cli list-builds --dir builds
 ```
 
-### 5. Show Compare Candidates
+### 6. Show Compare Candidates
 
 ```bash
 python -m inferedgeforge.cli show-compare-candidates \
   --dir builds \
-  --model models/test.onnx
+  --model models/onnx/yolov8n.onnx
 ```
 
-### 6. Show Compare Command
-
-This step only becomes fully useful after two benchmark-ready variants for the same source model exist and both have persisted `structured_result_path` values.
+### 7. Show Compare Command
 
 ```bash
 python -m inferedgeforge.cli show-compare-command \
   --dir builds \
-  --model models/test.onnx \
+  --model models/onnx/yolov8n.onnx \
   --left tensorrt/jetson_fp16 \
-  --right rknn/rk3588_fp16
+  --right tensorrt/jetson_fp32
 ```
 
-If a second Jetson-oriented TensorRT preset is being compared instead, replace `--right` with the actual ready preset name used during validation.
+### 8. Run Compare in InferEdgeLab
 
-After validating `tensorrt/jetson_fp16`, a matching `tensorrt/jetson_fp32` build and benchmark can be used as the second ready variant so `show-compare-command` can preview an FP16 vs FP32 TensorRT compare handoff on the same source model.
+```bash
+python -m inferedgelab.cli compare \
+  results/yolov8n.onnx__tensorrt__gpu__fp16__b1__h640w640__20260424-035442.json \
+  results/yolov8n.onnx__tensorrt__gpu__fp32__b1__h640w640__20260424-035938.json
+```
 
-### 7. Rebuild From Manifest
+### 9. Rebuild From Manifest
 
 ```bash
 python -m inferedgeforge.cli rebuild-from-manifest \
-  builds/test__jetson__tensorrt__jetson_fp16/manifest.json
+  builds/yolov8n__jetson__tensorrt__jetson_fp16/manifest.json
 ```
 
 Optional rebuild destination override:
 
 ```bash
 python -m inferedgeforge.cli rebuild-from-manifest \
-  builds/test__jetson__tensorrt__jetson_fp16/manifest.json \
+  builds/yolov8n__jetson__tensorrt__jetson_fp16/manifest.json \
   --output rebuilt
 ```
 
 ## Validation Checklist
 
-- [ ] `.engine` generated successfully
-- [ ] `metadata.json` generated successfully
-- [ ] `manifest.json` generated successfully
-- [ ] `inspect-build --summary` printed correctly
-- [ ] `run_summary.json` generated successfully
-- [ ] `structured_result_path` persisted
-- [ ] compare candidate discovery worked
-- [ ] compare command preview worked
+- [x] FP16 `.engine` generated successfully
+- [x] FP32 `.engine` generated successfully
+- [x] `metadata.json` generated successfully
+- [x] `manifest.json` generated successfully
+- [x] `inspect-build --summary` printed correctly
+- [x] `run_summary.json` generated successfully
+- [x] `structured_result_path` persisted
+- [x] compare candidate discovery worked
+- [x] compare command preview worked
 - [ ] `rebuild-from-manifest` succeeded
 
 ## Result Record
 
 Record observed Jetson results here after execution.
 
-| Item | Expected Value | Observed Value |
-| --- | --- | --- |
-| Engine artifact path | `builds/test__jetson__tensorrt__jetson_fp16/model.engine` | `TBD` |
-| Metadata path | `builds/test__jetson__tensorrt__jetson_fp16/metadata.json` | `TBD` |
-| Manifest path | `builds/test__jetson__tensorrt__jetson_fp16/manifest.json` | `TBD` |
-| Run summary path | `builds/test__jetson__tensorrt__jetson_fp16/run_summary.json` | `TBD` |
-| Structured result path | `실기 결과 입력 예정` | `TBD` |
-| Benchmark success | `Yes/No` | `TBD` |
-| Compare candidate discovery | `Yes/No` | `TBD` |
-| Compare command preview | `Yes/No` | `TBD` |
-| Rebuild from manifest | `Yes/No` | `TBD` |
+### FP16 Build and Benchmark
+
+| Item | Observed Value |
+| --- | --- |
+| Preset | `tensorrt/jetson_fp16` |
+| Build directory | `builds/yolov8n__jetson__tensorrt__jetson_fp16` |
+| Engine artifact path | `builds/yolov8n__jetson__tensorrt__jetson_fp16/model.engine` |
+| Engine size | `8.9M` |
+| Artifact SHA-256 | `302bb66ffbe58bef49ef17343ea5b42f9a783673650dd351f68c795018a1046c` |
+| Metadata path | `builds/yolov8n__jetson__tensorrt__jetson_fp16/metadata.json` |
+| Manifest path | `builds/yolov8n__jetson__tensorrt__jetson_fp16/manifest.json` |
+| Run summary path | `builds/yolov8n__jetson__tensorrt__jetson_fp16/run_summary.json` |
+| Raw report path | `reports/yolov8n__tensorrt_gpu__b1__h640w640__r100__20260424-035442.json` |
+| Structured result path | `results/yolov8n.onnx__tensorrt__gpu__fp16__b1__h640w640__20260424-035442.json` |
+
+### FP32 Build and Benchmark
+
+| Item | Observed Value |
+| --- | --- |
+| Preset | `tensorrt/jetson_fp32` |
+| Build directory | `builds/yolov8n__jetson__tensorrt__jetson_fp32` |
+| Engine artifact path | `builds/yolov8n__jetson__tensorrt__jetson_fp32/model.engine` |
+| Engine size | `14M` |
+| Artifact SHA-256 | `99c84230aede1fe3a1f7ebec7b981fa1671b3f842aa99637a8fa386c5b017442` |
+| Metadata path | `builds/yolov8n__jetson__tensorrt__jetson_fp32/metadata.json` |
+| Manifest path | `builds/yolov8n__jetson__tensorrt__jetson_fp32/manifest.json` |
+| Run summary path | `builds/yolov8n__jetson__tensorrt__jetson_fp32/run_summary.json` |
+| Raw report path | `reports/yolov8n__tensorrt_gpu__b1__h640w640__r100__20260424-035938.json` |
+| Structured result path | `results/yolov8n.onnx__tensorrt__gpu__fp32__b1__h640w640__20260424-035938.json` |
+
+### Compare Result
+
+| Item | Observed Value |
+| --- | --- |
+| Compare command | `python -m inferedgelab.cli compare results/yolov8n.onnx__tensorrt__gpu__fp16__b1__h640w640__20260424-035442.json results/yolov8n.onnx__tensorrt__gpu__fp32__b1__h640w640__20260424-035938.json` |
+| Comparison mode | `cross_precision` |
+| Precision pair | `fp16_vs_fp32` |
+| Overall judgement | `tradeoff_slower` |
+| Shape match | `True` |
+| System match | `True` |
+| Mean judgement | `neutral` |
+| P99 judgement | `regression` |
+| Accuracy judge | `unknown` |
+| Trade-off risk | `not_beneficial` |
+| FP16 mean_ms | `13.3527` |
+| FP32 mean_ms | `13.4897` |
+| Mean delta | `+0.1370 ms` |
+| Mean delta percent | `+1.03%` |
+| FP16 p99_ms | `16.8170` |
+| FP32 p99_ms | `20.9434` |
+| P99 delta | `+4.1264 ms` |
+| P99 delta percent | `+24.54%` |
+
+### Workflow Status Snapshot
+
+| Item | Observed Value |
+| --- | --- |
+| `list-builds` | `success` |
+| `show-compare-candidates` | `success` |
+| `show-compare-command` | `success` |
+| Compare execution | `success` |
+| `rebuild-from-manifest` | `TBD` |
 
 ## Issues / Follow-Up Notes
 
@@ -131,12 +214,17 @@ Record observed Jetson results here after execution.
 - TensorRT engine generation is environment-dependent and tied to the local Jetson/TensorRT installation.
 - `show-compare-command` depends on persisted `structured_result_path` values from downstream InferEdgeLab profiling.
 - `run-benchmark` depends on a working InferEdgeLab environment on the target system.
-- A single successful TensorRT build does not automatically guarantee compare readiness; at least two benchmark-ready variants are needed for a meaningful compare handoff.
+- During `run-benchmark`, stderr included the ONNX Runtime GPU discovery warning `GPU device discovery failed: Failed to open /sys/class/drm/card1/device/vendor`.
+- That warning was non-blocking in this validation pass because `returncode` was `0`, the raw report was saved, the structured result was saved, `run_summary.json` was saved, and the compare workflow completed successfully.
+- FP32 was not beneficial in this run despite similar mean latency because the P99 latency regression was materially larger.
+- Accuracy data was not collected in this pass, so the compare interpretation is latency-only and should not be treated as a full deployment-quality judgement.
 - If rebuild behavior differs across environments, record whether the source ONNX path, preset availability, or TensorRT toolchain layout changed.
 
 ## Conclusion
 
-- Jetson validation status: `실기 결과 입력 예정`
-- Verified so far in this document: command sequence, expected output paths, checklist structure, and rebuild record format
-- Remaining work: fill in actual hardware/software versions, command outputs, generated paths, benchmark status, compare readiness, and rebuild outcome from a real Jetson run
-- Recommended next step: execute the full workflow on the target Jetson board, then replace each `TBD` value with observed results and note any environment-specific issues
+- Jetson TensorRT FP16 and FP32 engine build validation completed successfully on a Jetson Orin environment.
+- Forge traceability was also validated end-to-end through `metadata.json`, `manifest.json`, artifact/source SHA-256 recording, and persisted `run_summary.json`.
+- InferEdgeLab handoff through `run-benchmark`, compare candidate discovery, compare command preview, and actual `compare` execution was completed successfully.
+- In this run, FP32 was effectively neutral on mean latency versus FP16 but regressed materially on P99 latency, so the observed trade-off was `not_beneficial`.
+- Accuracy remained `unknown` in the compare output, so this should be read as a latency-only trade-off result rather than a full accuracy-versus-performance conclusion.
+- Remaining work: record the exact JetPack version and execute `rebuild-from-manifest` on Jetson if rebuild reproducibility needs to be documented in the same level of detail.
