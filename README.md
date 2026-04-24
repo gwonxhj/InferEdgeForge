@@ -1,10 +1,12 @@
 # InferEdgeForge
 
-**A reproducible inference experiment system for edge deployment.**
+**InferEdgeForge is a reproducible inference experiment system that makes edge deployment artifacts traceable, comparable, and rebuildable.**
 
 InferEdgeForge is a CLI-first system for turning ONNX models into deployment artifacts, traceable build records, benchmark handoff inputs, and compare-ready experiment outputs. It is not just a model conversion script. It is an attempt to make edge inference packaging reproducible, inspectable, and reviewable as an engineering workflow.
 
 ## Problem Statement
+
+Most edge inference workflows can generate artifacts, but cannot explain or reproduce them reliably.
 
 Moving from an ONNX model to an actual edge deployment artifact is usually messy.
 
@@ -168,6 +170,9 @@ That is the core difference between this project and a plain conversion wrapper.
 ## What This Means
 
 This project is meant to demonstrate more than CLI implementation.
+
+This project is not about running models faster.
+It is about making inference experiments inspectable and reproducible, so that deployment decisions can be justified rather than guessed.
 
 It demonstrates the design of a system that supports:
 
