@@ -1,0 +1,15 @@
+{
+  "name": "tensorrt/jetson_fp32",
+  "backend": "tensorrt",
+  "target": "jetson",
+  "source_format": "onnx",
+  "artifact_format": "engine",
+  "build_options": {
+    "precision": "fp32",
+    "workspace_mb": 2048
+  },
+  "metadata": {
+    "validation_handoff": "inferedgelab",
+    "notes": "Jetson TensorRT FP32 preset for baseline comparison against FP16."
+  }
+}
