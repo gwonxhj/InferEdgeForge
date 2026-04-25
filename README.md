@@ -67,7 +67,7 @@ InferEdgeForge currently provides these implemented capabilities:
 
 This project is not documented only as a design idea. It has a recorded Jetson validation pass in [docs/jetson_validation.md](docs/jetson_validation.md).
 
-Verified on Jetson Orin-class hardware:
+Verified on Jetson Orin-class hardware for the baseline COCO YOLOv8n TensorRT flow:
 
 - TensorRT FP16 build succeeded for YOLOv8n
 - TensorRT FP32 build succeeded for YOLOv8n
@@ -84,13 +84,27 @@ What is important here is the level of validation:
 - the compare-ready workflow was exercised
 - the rebuild path was exercised
 
+The repository also records an official accuracy-aware TensorRT validation for a Haeundae custom YOLOv8n model:
+
+- source model: `models/onnx/yolov8n_haeundae.onnx`
+- source SHA-256: `c99a5563c0c00859d39e2d2c4afc5de7646b96a320ba7e9493d8cc367427d9a5`
+- validation dataset: 1,657 detection samples, 1 class, RGB 640x640
+- TensorRT FP16 and FP32 engines were built, fingerprinted, benchmarked, and handed off for downstream InferEdgeLab validation
+- matching detection accuracy payloads were attached to the FP16 and FP32 latency results
+- enriched compare output judged FP32 as `tradeoff_slower`, with latency regressions and neutral accuracy
+
+In that Haeundae validation context, FP16 is the selected TensorRT precision. FP32 increased mean latency from `8.8819 ms` to `10.2869 ms` and P99 latency from `13.7437 ms` to `18.1921 ms`, while accuracy deltas were effectively neutral (`map50 +0.04pp`, `map50_95 +0.01pp`, `f1_score +0.02pp`).
+
 What is equally important is what is **not** being claimed:
 
 - this is not a statement that all TensorRT environments are production-ready
-- this is not a statement that the Jetson compare is already accuracy-aware
+- this is not a statement that the baseline COCO YOLOv8n Jetson compare is accuracy-aware
 - this is not a statement of bitwise TensorRT artifact reproducibility
+- this is not a claim that the Haeundae FP16 selection generalizes beyond the recorded Jetson Orin environment, Haeundae validation dataset, and custom YOLOv8n model
 
-The current recorded Jetson compare is intentionally scoped as a latency-oriented FP16 vs FP32 result. Accuracy-aware compare wiring has been smoke-tested with existing InferEdgeLab payload examples, but task-matched TensorRT accuracy evidence has not yet been attached to the official Jetson FP16/FP32 result.
+The baseline COCO YOLOv8n Jetson compare is intentionally scoped as a latency-oriented FP16 vs FP32 result. Accuracy-aware compare wiring has been smoke-tested with existing InferEdgeLab payload examples, but task-matched TensorRT accuracy evidence has not been attached to that baseline COCO FP16/FP32 result.
+
+The Haeundae custom model result is recorded separately as the accuracy-aware validation record. The earlier COCO latency-only result and the RKNN payload smoke test are not mixed into that decision.
 
 ## How The System Works
 
@@ -188,7 +202,8 @@ The current system is intentionally honest about its boundaries.
 
 - TensorRT engine hashes are not guaranteed to be bitwise stable across rebuilds
 - Jetson rebuild validation currently supports functional reproducibility, not bitwise identity
-- Jetson FP16 vs FP32 compare is still documented as latency-only
+- baseline COCO YOLOv8n Jetson FP16 vs FP32 compare is still documented as latency-only
+- Haeundae custom YOLOv8n accuracy-aware validation is scoped to its recorded model, dataset, thresholds, and Jetson environment
 - accuracy evidence depends on external evaluation results or downstream InferEdgeLab enrich flows
 - some environment details in the Jetson validation record remain `TBD`
 - backend toolchains remain environment-dependent
@@ -213,6 +228,7 @@ InferEdgeForge already has:
 - benchmark handoff and persisted execution summaries
 - compare-ready experiment views
 - documented Jetson FP16/FP32 validation evidence
+- documented Haeundae custom YOLOv8n TensorRT accuracy-aware validation evidence
 - documented manifest-based rebuild validation
 
 It should still be read as a focused and validated foundation, not as a claim that every backend path or deployment workflow is complete.
