@@ -36,6 +36,7 @@ This roadmap defines the early implementation path for InferEdgeForge as a repro
 - [x] Replace the placeholder TensorRT artifact path with `trtexec`-based engine generation
 - [x] Validate TensorRT FP16 and FP32 builds on Jetson hardware
 - [x] Record Jetson TensorRT validation results with artifact and benchmark traceability
+- [x] Record Haeundae custom YOLOv8n TensorRT FP16/FP32 validation with artifact fingerprints
 
 ## Phase 5: Validation Handoff to InferEdgeLab
 
@@ -51,9 +52,11 @@ This roadmap defines the early implementation path for InferEdgeForge as a repro
 - [x] Add compare command preview from persisted structured result paths
 - [x] Document accuracy evidence handoff through InferEdgeLab enrich commands
 - [x] Validate manifest-based rebuilds on Jetson as functionally reproducible and benchmarkable
+- [x] Record task-matched Haeundae TensorRT detection accuracy evidence and enriched compare outcome
 - [ ] Expand handoff coverage for additional downstream validation workflows
 - [ ] Add task-matched TensorRT accuracy evidence collection guidance and examples
-- [ ] Close the loop on accuracy-aware TensorRT compare workflows
+- [x] Close the loop on the Haeundae custom model accuracy-aware TensorRT compare workflow
+- [ ] Generalize accuracy-aware TensorRT compare guidance beyond the Haeundae validation case
 
 ## Phase 6: Developer Experience Improvements
 
@@ -70,5 +73,7 @@ This roadmap defines the early implementation path for InferEdgeForge as a repro
 - Metadata quality is a core engineering concern, not an optional add-on.
 - InferEdgeForge builds and traces artifacts, including fingerprints, preset snapshots, manifests, and persisted run summaries.
 - InferEdgeLab profiles, compares, and can attach accuracy evidence through downstream enrich commands.
-- The current Jetson validation proves latency-oriented FP16/FP32 handoff and compare flow, not a full accuracy-aware deployment judgement.
+- The baseline COCO YOLOv8n Jetson validation proves latency-oriented FP16/FP32 handoff and compare flow, not a full accuracy-aware deployment judgement.
+- The Haeundae custom YOLOv8n validation records an official accuracy-aware TensorRT FP16/FP32 judgement for that model, dataset, threshold configuration, and Jetson environment.
+- In the Haeundae validation context, FP32 was slower with neutral accuracy, so FP16 is the selected precision.
 - Jetson rebuild validation currently supports functional reproducibility of the TensorRT recipe, not guaranteed bitwise identity of serialized engine hashes.

@@ -145,6 +145,98 @@ python -m inferedgeforge.cli rebuild-from-manifest \
 
 Record observed Jetson results here after execution.
 
+## Haeundae Custom YOLOv8n Accuracy-Aware Validation
+
+This section records the official accuracy-aware Jetson TensorRT validation for the Haeundae custom YOLOv8n model.
+
+This validation is intentionally separate from the earlier COCO YOLOv8n latency-only record above. It uses a different ONNX model, a task-matched Haeundae validation dataset, and matching TensorRT FP16/FP32 detection accuracy payloads. The earlier RKNN payload attachment was only a workflow smoke test and is not mixed into this result.
+
+InferEdgeForge records the build, artifact lineage, metadata, run summary, and Lab handoff context. InferEdgeLab is treated as the downstream validation tool that produced the structured latency results, attached detection accuracy evidence, and compared the enriched results.
+
+### Haeundae Validation Inputs
+
+| Item | Observed Value |
+| --- | --- |
+| Source ONNX path | `models/onnx/yolov8n_haeundae.onnx` |
+| Source SHA-256 | `c99a5563c0c00859d39e2d2c4afc5de7646b96a320ba7e9493d8cc367427d9a5` |
+| Dataset image directory | `/home/risenano01/DeepStream-Yolo/datasets/images/val` |
+| Dataset label directory | `/home/risenano01/DeepStream-Yolo/datasets/labels/val` |
+| Samples | `1657` |
+| Task | `detection` |
+| Classes | `1` |
+| Input | `RGB, 640x640` |
+| Confidence threshold | `0.2` |
+| NMS threshold | `0.45` |
+
+### Haeundae FP16 Build, Benchmark, and Accuracy Evidence
+
+| Item | Observed Value |
+| --- | --- |
+| Preset | `tensorrt/jetson_fp16` |
+| Build directory | `builds/yolov8n_haeundae__jetson__tensorrt__jetson_fp16` |
+| Engine artifact path | `builds/yolov8n_haeundae__jetson__tensorrt__jetson_fp16/model.engine` |
+| Artifact SHA-256 | `1d2b0791207591007743a3fbbaa988aaf1f9b9fbab92f2037ca0900a13b4a14c` |
+| Metadata path | `builds/yolov8n_haeundae__jetson__tensorrt__jetson_fp16/metadata.json` |
+| Manifest path | `builds/yolov8n_haeundae__jetson__tensorrt__jetson_fp16/manifest.json` |
+| Run summary path | `builds/yolov8n_haeundae__jetson__tensorrt__jetson_fp16/run_summary.json` |
+| Raw report path | `reports/yolov8n_haeundae__tensorrt_gpu__b1__h640w640__r100__20260425-151440.json` |
+| Structured latency result | `results/yolov8n_haeundae.onnx__tensorrt__gpu__fp16__b1__h640w640__20260425-151440.json` |
+| Detection accuracy JSON | `accuracy/yolov8n_haeundae_tensorrt_fp16_detection_accuracy.json` |
+| Enriched result | `results/yolov8n_haeundae.onnx__tensorrt__gpu__fp16__b1__h640w640__20260425-153017-751881.json` |
+
+### Haeundae FP32 Build, Benchmark, and Accuracy Evidence
+
+| Item | Observed Value |
+| --- | --- |
+| Preset | `tensorrt/jetson_fp32` |
+| Build directory | `builds/yolov8n_haeundae__jetson__tensorrt__jetson_fp32` |
+| Engine artifact path | `builds/yolov8n_haeundae__jetson__tensorrt__jetson_fp32/model.engine` |
+| Artifact SHA-256 | `0ad5eccfc8b1d5602eb9fc5258a20b9139776fc20c75a2987f25d02de4217cb2` |
+| Metadata path | `builds/yolov8n_haeundae__jetson__tensorrt__jetson_fp32/metadata.json` |
+| Manifest path | `builds/yolov8n_haeundae__jetson__tensorrt__jetson_fp32/manifest.json` |
+| Run summary path | `builds/yolov8n_haeundae__jetson__tensorrt__jetson_fp32/run_summary.json` |
+| Raw report path | `reports/yolov8n_haeundae__tensorrt_gpu__b1__h640w640__r100__20260425-152321.json` |
+| Structured latency result | `results/yolov8n_haeundae.onnx__tensorrt__gpu__fp32__b1__h640w640__20260425-152321.json` |
+| Detection accuracy JSON | `accuracy/yolov8n_haeundae_tensorrt_fp32_detection_accuracy.json` |
+| Enriched result | `results/yolov8n_haeundae.onnx__tensorrt__gpu__fp32__b1__h640w640__20260425-153017-753457.json` |
+
+### Haeundae Latency Comparison
+
+| Metric | FP16 | FP32 | Delta |
+| --- | ---: | ---: | ---: |
+| mean_ms | `8.8819` | `10.2869` | `+1.4049 ms (+15.82%)` |
+| p99_ms | `13.7437` | `18.1921` | `+4.4484 ms (+32.37%)` |
+
+### Haeundae Detection Accuracy Comparison
+
+| Metric | FP16 | FP32 | Delta |
+| --- | ---: | ---: | ---: |
+| map50 | `0.8037` | `0.8041` | `+0.04pp` |
+| map50_95 | `0.5519` | `0.5520` | `+0.01pp` |
+| f1_score | `0.8195` | `0.8197` | `+0.02pp` |
+| precision | `0.7983` | `0.7983` | `approximately 0.00pp` |
+| recall | `0.8419` | `0.8423` | `+0.04pp` |
+
+### Haeundae Enriched Compare Result
+
+| Item | Observed Value |
+| --- | --- |
+| Comparison mode | `cross_precision` |
+| Precision pair | `fp16_vs_fp32` |
+| Overall judgement | `tradeoff_slower` |
+| Mean judgement | `regression` |
+| P99 judgement | `regression` |
+| Accuracy judge | `neutral` |
+| Trade-off risk | `not_beneficial` |
+
+### Haeundae Validation Conclusion
+
+- In the Haeundae validation context, FP32 provides almost no accuracy benefit over FP16.
+- FP32 regresses both mean latency and P99 latency.
+- Therefore, TensorRT FP16 is the selected precision for this validation condition.
+- This conclusion is scoped to the Jetson Orin environment, the Haeundae validation dataset, and this custom YOLOv8n model.
+- This is the official accuracy-aware validation record for the Haeundae custom model only. It should not be generalized to the earlier COCO YOLOv8n latency-only result.
+
 ### FP16 Build and Benchmark
 
 | Item | Observed Value |
