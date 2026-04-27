@@ -213,6 +213,7 @@ The current system is intentionally honest about its boundaries.
 
 - [docs/quickstart.md](docs/quickstart.md): practical end-to-end quickstart
 - [docs/handoff.md](docs/handoff.md): Forge to Lab handoff contract
+- [docs/runtime_handoff_contract.md](docs/runtime_handoff_contract.md): Forge to Runtime artifact and manifest handoff contract
 - [docs/jetson_validation.md](docs/jetson_validation.md): recorded Jetson validation evidence
 - [examples/README.md](examples/README.md): examples index
 - [Roadmap.md](Roadmap.md): implementation status and next steps
