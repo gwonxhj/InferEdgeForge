@@ -181,6 +181,17 @@ def _without_none(value: object) -> object:
 
 def build_manifest_from_metadata(metadata: BuildMetadata) -> dict[str, object]:
     artifact = metadata.artifacts[0] if metadata.artifacts else None
+    runtime = metadata.lab_compat.runtime if metadata.lab_compat is not None else None
+    artifact_payload = artifact.to_dict() if artifact is not None else None
+    if artifact_payload is not None:
+        artifact_payload.update(
+            {
+                "model_path": artifact.path,
+                "model_name": Path(metadata.source_model.path).name,
+            }
+        )
+        if runtime is not None:
+            artifact_payload["precision"] = runtime.precision
     manifest = {
         "build": {
             "build_id": metadata.build.build_id,
@@ -194,7 +205,21 @@ def build_manifest_from_metadata(metadata: BuildMetadata) -> dict[str, object]:
             "format": metadata.source_model.format,
             "sha256": metadata.source_model.sha256,
         },
-        "artifact": artifact.to_dict() if artifact is not None else None,
+        "artifact": artifact_payload,
+        "runtime": (
+            {
+                "engine": runtime.engine,
+                "device": runtime.device,
+                "precision": runtime.precision,
+                "model_path": runtime.runtime_artifact_path,
+                "artifact_path": runtime.runtime_artifact_path,
+                "batch": runtime.requested_batch,
+                "height": runtime.requested_height,
+                "width": runtime.requested_width,
+            }
+            if runtime is not None
+            else None
+        ),
         "preset_snapshot": (
             metadata.preset_snapshot.to_dict() if metadata.preset_snapshot is not None else None
         ),
