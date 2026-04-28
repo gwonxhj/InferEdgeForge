@@ -1,6 +1,6 @@
 # InferEdgeForge to InferEdgeLab Handoff
 
-InferEdgeForge and InferEdgeLab are designed to work as separate stages in the same deployment workflow. InferEdgeForge produces deployment artifacts and structured metadata. InferEdgeLab consumes those outputs to perform runtime validation, comparison, and downstream deployment analysis.
+InferEdgeForge and InferEdgeLab are designed to work as separate stages in the same deployment workflow. InferEdgeForge produces deployment artifacts and structured metadata. InferEdgeRuntime executes or validates artifacts and exports result JSON. InferEdgeLab consumes those results and provenance records to perform comparison, reporting, and downstream deployment analysis.
 
 ## Responsibility Split
 
@@ -13,10 +13,16 @@ InferEdgeForge and InferEdgeLab are designed to work as separate stages in the s
 
 ### InferEdgeLab
 
-- Profiles runtime behavior
+- Consumes Runtime result JSON and Forge provenance
 - Compares structured results
 - Evaluates deployment trade-offs
-- Interprets latency, accuracy, and deployment risk in downstream validation
+- Owns reports, API bundles, job results, and final deployment decisions
+
+### InferEdgeRuntime
+
+- Executes or validates model/artifact inputs
+- Exports Lab-compatible result JSON
+- Preserves manifest source model identity for compare-ready Runtime results
 
 ## Handoff Contract
 

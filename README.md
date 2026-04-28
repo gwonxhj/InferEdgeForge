@@ -24,7 +24,7 @@ Implemented today:
 
 - `metadata.json` and `manifest.json` record build identity, source model hash, artifact hash, preset snapshot, backend, target, precision, and shape context
 - `worker/runtime summary` projects build provenance into fields that Lab worker requests and Runtime invocation boundaries can consume
-- compare and benchmark handoff metadata keeps artifact lineage connected to downstream validation
+- compare and runtime handoff metadata keeps artifact lineage connected to downstream validation
 
 Planned later:
 
@@ -71,7 +71,7 @@ That system has a narrow but important responsibility:
 
 - generate deployment artifacts from ONNX using named presets
 - preserve build intent and artifact lineage as structured records
-- prepare downstream benchmark and compare handoff into InferEdgeLab
+- prepare downstream Runtime/Lab handoff context for validation
 - keep build, benchmark trace, and experiment state connected enough to review later
 
 The output is not only an artifact. It is an artifact plus the context required to reason about that artifact as part of a deployment experiment.
@@ -85,7 +85,7 @@ InferEdgeForge currently provides these implemented capabilities:
 - source model and artifact SHA-256 fingerprints
 - preset snapshots persisted with build records
 - InferEdgeLab handoff generation through profile input and command views
-- `run-benchmark` execution from stored handoff metadata
+- `run-benchmark` handoff helper for invoking downstream validation commands from stored metadata
 - persisted `run_summary.json` for downstream traceability
 - experiment-level build listing across preset variants
 - compare-ready candidate discovery
@@ -145,11 +145,11 @@ InferEdgeForge and InferEdgeLab are paired, but they do different jobs.
 - builds deployment artifacts
 - records build identity and preset intent
 - preserves source and artifact fingerprints
-- prepares benchmark and compare handoff state
+- prepares runtime, benchmark, and compare handoff state
 
 **InferEdgeLab**
 
-- profiles runtime behavior
+- analyzes Runtime result JSON
 - compares structured results
 - attaches downstream accuracy evidence when available
 - interprets trade-offs during validation
