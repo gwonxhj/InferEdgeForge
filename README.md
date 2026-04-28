@@ -1,5 +1,9 @@
 # InferEdgeForge
 
+**GitHub description:** Build provenance and handoff layer for converting ONNX models into edge deployment artifacts.
+
+InferEdge is an end-to-end Edge AI inference validation pipeline that connects build provenance, C++ runtime execution, Lab analysis/deployment decision, and optional deterministic diagnosis evidence.
+
 **InferEdgeForge is a reproducible inference experiment system that makes edge deployment artifacts traceable, comparable, and rebuildable.**
 
 InferEdgeForge is a CLI-first system for turning ONNX models into deployment artifacts, traceable build records, benchmark handoff inputs, and compare-ready experiment outputs. It is not just a model conversion script. It is an attempt to make edge inference packaging reproducible, inspectable, and reviewable as an engineering workflow.
