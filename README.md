@@ -175,6 +175,7 @@ Each build can leave a reviewable record instead of only a binary artifact.
 
 - `metadata.json`: build identity, source model context, preset snapshot, handoff mapping
 - `manifest.json`: reproducibility-oriented snapshot of the build recipe and artifact context
+- worker/runtime summary: compact metadata/manifest projection for Lab worker requests and Runtime invocation planning
 - artifact SHA-256: fingerprint of the produced deployment artifact
 - source SHA-256: fingerprint of the ONNX input
 - `run_summary.json`: persisted downstream execution trace after `run-benchmark`
