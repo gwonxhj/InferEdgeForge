@@ -107,6 +107,29 @@ Forge metadata and manifest fields should flow into Runtime result JSON as follo
 
 Runtime may still allow CLI overrides. When CLI values override manifest values, Runtime should record the resolved values in its result JSON so Lab can compare the actual execution configuration.
 
+## Worker/Runtime Summary
+
+Forge can project `metadata.json` and `manifest.json` into a compact worker/runtime summary for Lab worker requests and Runtime invocation config preparation.
+
+The summary is not a replacement for `metadata.json` or `manifest.json`. It is a derived adapter payload that preserves the fields most likely to cross the Forge -> Lab worker -> Runtime boundary:
+
+| Summary field | Source |
+|---|---|
+| `source_model_path` | `source_model.path` |
+| `source_model_sha256` | `source_model.sha256` |
+| `backend` | `runtime.engine`, `build.backend`, or `lab_compat.runtime.engine` |
+| `target` | `runtime.device`, `build.target`, or `lab_compat.runtime.device` |
+| `precision` | `runtime.precision`, `artifact.precision`, or preset build options |
+| `batch`, `height`, `width` | `runtime` shape fields or `lab_compat.runtime` requested shape |
+| `artifact_path` | `runtime.artifact_path`, `artifact.model_path`, `artifact.path`, or `lab_compat.runtime.runtime_artifact_path` |
+| `artifact_sha256` | `artifact.sha256` |
+| `artifact_type` | `artifact.format` |
+| `metadata_path`, `manifest_path` | optional caller-provided paths |
+| `preset_name` | `build.preset_name` or `preset_snapshot.name` |
+| `build_id` | `build.build_id` |
+
+The helper `build_worker_runtime_summary` keeps this adapter contract executable in tests. Lab can use the summary fields to construct `worker_request.input_summary`, and Runtime can map the same fields into invocation config without needing to understand every Forge metadata detail.
+
 ## Non-Goals
 
 This document does not:
@@ -121,6 +144,6 @@ This document does not:
 
 Recommended next work:
 
-- add a Runtime smoke test that accepts Forge `metadata.json` or `manifest.json` as input
-- strengthen Lab ingest contracts for Runtime output plus Forge provenance bundles
-- add an AIGuard artifact mismatch detector based on source/artifact hashes and Runtime provenance
+- add a Lab compatibility smoke that ingests the Forge worker/runtime summary as `worker_request.input_summary`
+- use the summary in a future Runtime worker adapter without adding queue infrastructure
+- continue preserving source/artifact hashes for AIGuard artifact mismatch evidence
