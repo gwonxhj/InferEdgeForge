@@ -4,6 +4,36 @@
 
 InferEdgeForge is a CLI-first system for turning ONNX models into deployment artifacts, traceable build records, benchmark handoff inputs, and compare-ready experiment outputs. It is not just a model conversion script. It is an attempt to make edge inference packaging reproducible, inspectable, and reviewable as an engineering workflow.
 
+## InferEdge Pipeline Role
+
+InferEdgeForge is the build/provenance layer of the larger InferEdge validation pipeline:
+
+```text
+ONNX model
+-> InferEdgeForge build
+-> metadata / manifest / worker runtime summary
+-> InferEdgeRuntime validation / result export
+-> InferEdgeLab compare / API / job workflow / deployment_decision
+-> optional InferEdgeAIGuard provenance diagnosis
+-> deploy / review / blocked decision
+```
+
+In that pipeline, Forge is responsible for converting an ONNX model into edge deployment artifacts such as TensorRT engines or RKNN artifacts, while preserving the provenance needed by Runtime, Lab, and AIGuard.
+
+Implemented today:
+
+- `metadata.json` and `manifest.json` record build identity, source model hash, artifact hash, preset snapshot, backend, target, precision, and shape context
+- `worker/runtime summary` projects build provenance into fields that Lab worker requests and Runtime invocation boundaries can consume
+- compare and benchmark handoff metadata keeps artifact lineage connected to downstream validation
+
+Planned later:
+
+- automatic SaaS worker execution from Lab jobs
+- production worker/queue integration
+- broader production deployment controls around artifact promotion
+
+Forge does not decide whether a model should be deployed. InferEdgeLab owns the final `deployment_decision`; Forge supplies the reproducible build evidence that makes that decision reviewable.
+
 ## Problem Statement
 
 Most edge inference workflows can generate artifacts, but cannot explain or reproduce them reliably.
