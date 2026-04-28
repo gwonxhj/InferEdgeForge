@@ -101,11 +101,11 @@ Forge metadata and manifest fields should flow into Runtime result JSON as follo
 | `runtime.width`, `lab_compat.runtime.requested_width` | `width` and `run_config.width` |
 | `artifact.path`, `artifact.model_path`, `runtime.artifact_path` | `model_path`, `extra.runtime_artifact_path`, or runtime provenance |
 | `artifact.sha256` | runtime artifact provenance and AIGuard artifact mismatch evidence |
-| `source_model.path` | `model_name`, `model.path`, or source model provenance |
+| `source_model.path` | Runtime `compare_model_name`, `compare_key` source identity, `model.path`, or source model provenance |
 | `source_model.sha256` | model provenance and AIGuard source mismatch evidence |
 | `build.build_id`, `build.timestamp` | build provenance in reports or API bundles |
 
-Runtime may still allow CLI overrides. When CLI values override manifest values, Runtime should record the resolved values in its result JSON so Lab can compare the actual execution configuration.
+Runtime may still allow CLI overrides. When CLI values override manifest values, Runtime should record the resolved values in its result JSON so Lab can compare the actual execution configuration. For compare naming, Runtime now prefers manifest `source_model.path` when available, so a generic TensorRT artifact path such as `model.engine` can still preserve `compare_model_name=yolov8n` and `compare_key=yolov8n__b1__h640w640__fp32`.
 
 ## Worker/Runtime Summary
 
