@@ -1,8 +1,28 @@
 # InferEdgeForge
 
+Build provenance and artifact handoff layer  
+(ONNX model → TensorRT/RKNN artifacts · metadata · manifest · Runtime/Lab handoff)
+
 언어: [English](README.md) | 한국어
 
-InferEdgeForge는 InferEdge 전체 파이프라인에서 **build/provenance/handoff layer** 역할을 맡는 레포입니다.
+## 요약
+
+- InferEdge validation pipeline의 build/provenance layer입니다.
+- ONNX 모델을 TensorRT/RKNN 계열 edge artifact로 변환합니다.
+- source model hash, artifact hash, preset, target, precision, shape metadata를 기록합니다.
+- Runtime/Lab이 사용할 handoff record를 생성합니다.
+- deployment review에 필요한 build evidence를 제공하며, 최종 decision은 InferEdgeLab이 소유합니다.
+
+## InferEdgeForge의 차별점
+
+InferEdgeForge는 단순한 model conversion script가 아닙니다.
+
+이 레포는 edge artifact를 재현 가능하고 검토 가능한 단위로 만들기 위해:
+
+- build intent를 structured metadata로 보존하고
+- model artifact를 source fingerprint와 연결하며
+- benchmark/compare handoff를 추적 가능하게 만들고
+- reviewer가 artifact의 rebuild 가능성과 validation 상태를 확인할 수 있게 합니다.
 
 InferEdge는 ONNX 모델을 edge deployment artifact로 변환하고, C++ Runtime 실행 결과와 Lab 분석/deployment decision, optional AIGuard diagnosis evidence까지 연결하는 end-to-end Edge AI inference validation pipeline입니다.
 
