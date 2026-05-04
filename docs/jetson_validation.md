@@ -13,8 +13,8 @@ This document is intentionally conservative. Only confirmed execution results sh
 - OS: `Ubuntu 22.04.5 LTS`
 - Kernel: `Linux 5.15.148-tegra`
 - Architecture: `aarch64`
-- Jetson board model: `Jetson Orin series (exact SKU TBD)`
-- JetPack version: `TBD`
+- Jetson board model: `Jetson Orin Nano`
+- JetPack/L4T package: `nvidia-l4t-core 36.4.7-20250918154033`
 - GPU device name from `trtexec`: `Orin`
 - TensorRT version: `10.3.0`
 - TensorRT package version: `10.3.0.30-1+cuda12.5`
@@ -22,7 +22,7 @@ This document is intentionally conservative. Only confirmed execution results sh
 - Python environment: `yolo_env`
 - `trtexec` path: `/usr/src/tensorrt/bin/trtexec`
 - Execution date: `2026-04-24`
-- Additional environment notes: `TBD`
+- Additional environment notes: Runtime/Lab later recorded 15W and 25W Jetson Evidence Track measurements from the generated TensorRT FP16 artifact.
 
 ## Inputs Used
 
@@ -33,7 +33,7 @@ This document is intentionally conservative. Only confirmed execution results sh
   - `tensorrt/jetson_fp32`
 - Output root: `builds`
 - Manifest used: `Yes`
-- Rebuild destination override: `TBD`
+- Rebuild destination override: `rebuilds`
 
 ## Execution Order
 
@@ -237,6 +237,19 @@ InferEdgeForge records the build, artifact lineage, metadata, run summary, and L
 - This conclusion is scoped to the Jetson Orin environment, the Haeundae validation dataset, and this custom YOLOv8n model.
 - This is the official accuracy-aware validation record for the Haeundae custom model only. It should not be generalized to the earlier COCO YOLOv8n latency-only result.
 
+## Downstream Runtime/Lab Jetson Evidence
+
+After the Forge TensorRT FP16 artifact path was validated, Runtime/Lab recorded additional Jetson Evidence Track results using the Forge-generated engine artifact and Lab-compatible Runtime JSON.
+These numbers are downstream execution evidence, not Forge-owned deployment decisions.
+
+| Evidence | Precision | Power Mode | Mean ms | P95 ms | P99 ms | FPS |
+|---|---|---|---:|---:|---:|---:|
+| Runtime TensorRT short smoke | FP16 | 25W | 10.066401 | 15.476641 | 15.548438 | 99.340373 |
+| Runtime TensorRT power-mode evidence | FP16 | 15W | 10.799106 | 15.438690 | 15.529218 | 92.600262 |
+
+The 15W and 25W measurements are tracked as different run configurations.
+They strengthen the InferEdge validation evidence chain from Forge artifact provenance to Runtime execution and Lab comparison.
+
 ### FP16 Build and Benchmark
 
 | Item | Observed Value |
@@ -406,4 +419,4 @@ InferEdgeForge records the build, artifact lineage, metadata, run summary, and L
 - In this run, FP32 was effectively neutral on mean latency versus FP16 but regressed materially on P99 latency, so the observed trade-off was `not_beneficial`.
 - Accuracy remained `unknown` in the compare output, so this should be read as a latency-only trade-off result rather than a full accuracy-versus-performance conclusion.
 - Original and rebuilt TensorRT engine hashes differed, so this should be interpreted as functional reproducibility of the same recipe rather than guaranteed bitwise reproducibility of the serialized engine artifact.
-- Remaining work: record the exact JetPack version and attach task-matched TensorRT accuracy evidence through InferEdgeLab if an accuracy-aware compare is needed.
+- Remaining work: map the recorded L4T package to the exact JetPack release label if needed, and attach additional task-matched TensorRT accuracy evidence through InferEdgeLab for future accuracy-aware compare runs.
