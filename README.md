@@ -136,6 +136,13 @@ What is important here is the level of validation:
 - the compare-ready workflow was exercised
 - the rebuild path was exercised
 
+Downstream Runtime/Lab validation has also recorded Jetson Evidence Track results for the Forge-generated TensorRT FP16 artifact:
+
+- TensorRT FP16 25W: mean `10.066401 ms`, p95 `15.476641 ms`, p99 `15.548438 ms`, FPS `99.340373`
+- TensorRT FP16 15W: mean `10.799106 ms`, p95 `15.438690 ms`, p99 `15.529218 ms`, FPS `92.600262`
+
+Forge remains the build/provenance layer. Runtime owns these execution measurements, and Lab owns the comparison/deployment decision interpretation.
+
 The repository also records an official accuracy-aware TensorRT validation for a Haeundae custom YOLOv8n model:
 
 - source model: `models/onnx/yolov8n_haeundae.onnx`

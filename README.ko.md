@@ -70,6 +70,10 @@ python3 -m pytest -q
 
 현재는 build/provenance/handoff contract를 안정화한 단계입니다. TensorRT/RKNN artifact build와 provenance 기록을 중심으로 하며, production SaaS worker 자동 실행은 포함하지 않습니다.
 
+Jetson validation은 Forge가 생성한 TensorRT artifact가 downstream Runtime/Lab evidence로 이어지는지 확인하는 방향으로 유지합니다.
+현재 Runtime/Lab 쪽에는 Forge-generated TensorRT FP16 artifact 기반 25W evidence(mean `10.066401 ms`, p99 `15.548438 ms`, FPS `99.340373`)와 15W power-mode evidence(mean `10.799106 ms`, p99 `15.529218 ms`, FPS `92.600262`)가 기록되어 있습니다.
+Forge는 이 수치를 직접 판단하지 않고, build provenance와 artifact handoff를 제공합니다.
+
 Future work:
 
 - Lab job에서 Forge build를 자동 실행하는 production worker
