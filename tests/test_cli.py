@@ -488,6 +488,8 @@ def test_build_parser_constructs() -> None:
     parser = build_parser()
 
     assert parser.prog == "inferedgeforge"
+    help_text = parser.format_help()
+    assert "validate-manifest" in help_text
 
 
 def test_rebuild_from_manifest_succeeds(tmp_path, capsys, monkeypatch) -> None:
@@ -524,6 +526,58 @@ def test_rebuild_from_manifest_succeeds(tmp_path, capsys, monkeypatch) -> None:
     rebuilt_dir = _expected_build_dir(output_dir, "test", "jetson", "tensorrt", "tensorrt/jetson_fp16")
     assert (rebuilt_dir / "metadata.json").exists()
     assert (rebuilt_dir / "manifest.json").exists()
+
+
+def test_validate_manifest_command_accepts_build_dir(tmp_path, capsys, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "models" / "test.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.parent.mkdir(parents=True)
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
+
+    run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    build_dir = _expected_build_dir(
+        output_dir,
+        "test",
+        "jetson",
+        "tensorrt",
+        "tensorrt/jetson_fp16",
+    )
+
+    exit_code = main(["validate-manifest", "--build-dir", str(build_dir)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 0
+    assert "Manifest validation: valid" in captured.out
+    assert f"Manifest: {build_dir / 'manifest.json'}" in captured.out
+    assert "Errors: 0" in captured.out
+
+
+def test_validate_manifest_command_returns_error_for_invalid_manifest(tmp_path, capsys) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "build": {"preset_name": "tensorrt/jetson_fp16"},
+                "source_model": {"path": "models/yolov8n.onnx"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["validate-manifest", "--manifest", str(manifest_path)])
+    captured = capsys.readouterr()
+
+    assert exit_code == 1
+    assert "Manifest validation: invalid" in captured.out
+    assert "ERROR artifact" in captured.out
+    assert "ERROR runtime" in captured.out
 
 
 def test_rebuild_from_manifest_requires_preset_name(tmp_path, capsys) -> None:

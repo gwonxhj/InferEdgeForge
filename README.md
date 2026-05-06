@@ -112,6 +112,7 @@ InferEdgeForge currently provides these implemented capabilities:
 - experiment-level build listing across preset variants
 - compare-ready candidate discovery
 - compare command preview from persisted structured result paths
+- manifest sanity validation before Runtime/Lab handoff
 - downstream accuracy evidence attachment support via InferEdgeLab enrich flows
 - `rebuild-from-manifest` support, with Jetson rebuild validation recorded as functionally reproducible
 
@@ -220,6 +221,9 @@ python -m inferedgeforge.cli show-compare-command \
   --model models/test.onnx \
   --left tensorrt/jetson_fp16 \
   --right tensorrt/jetson_fp32
+
+python -m inferedgeforge.cli validate-manifest \
+  --build-dir builds/test__jetson__tensorrt__jetson_fp16
 ```
 
 Representative outputs produced by the system:
@@ -240,6 +244,7 @@ Each build can leave a reviewable record instead of only a binary artifact.
 - artifact SHA-256: fingerprint of the produced deployment artifact
 - source SHA-256: fingerprint of the ONNX input
 - `run_summary.json`: persisted downstream execution trace after `run-benchmark`
+- `validate-manifest`: build-free sanity check for required Runtime/Lab handoff fields
 
 That is the core difference between this project and a plain conversion wrapper. The system preserves enough state to support later inspection, rebuild, and comparison.
 

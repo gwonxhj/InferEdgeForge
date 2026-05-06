@@ -193,6 +193,7 @@ def build_manifest_from_metadata(metadata: BuildMetadata) -> dict[str, object]:
         if runtime is not None:
             artifact_payload["precision"] = runtime.precision
     manifest = {
+        "schema_version": "inferedgeforge-manifest-v1",
         "build": {
             "build_id": metadata.build.build_id,
             "timestamp": metadata.build.timestamp,

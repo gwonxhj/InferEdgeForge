@@ -25,6 +25,7 @@ from inferedgeforge.build import (
     write_run_summary,
 )
 from inferedgeforge.metadata import read_build_metadata
+from inferedgeforge.manifest_validation import format_manifest_validation, validate_manifest
 from inferedgeforge.presets import load_preset_by_id
 from inferedgeforge.schemas import BuildMetadata
 
@@ -147,6 +148,12 @@ def _cmd_rebuild_from_manifest(args: argparse.Namespace) -> int:
     print(f"Output   : {output_root}")
     print(f"Metadata : {_metadata_path(metadata)}")
     return 0
+
+
+def _cmd_validate_manifest(args: argparse.Namespace) -> int:
+    result = validate_manifest(manifest=args.manifest, build_dir=args.build_dir)
+    print(format_manifest_validation(result))
+    return 0 if result.valid else 1
 
 
 def _metadata_path(metadata: BuildMetadata) -> Path:
@@ -297,6 +304,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional output root for rebuilt artifacts.",
     )
     rebuild_parser.set_defaults(func=_cmd_rebuild_from_manifest)
+
+    validate_parser = subparsers.add_parser(
+        "validate-manifest",
+        help="Validate manifest.json handoff sanity without rebuilding.",
+    )
+    validate_source = validate_parser.add_mutually_exclusive_group(required=True)
+    validate_source.add_argument("--manifest", help="Path to manifest.json.")
+    validate_source.add_argument("--build-dir", help="Build directory containing manifest.json.")
+    validate_parser.set_defaults(func=_cmd_validate_manifest)
 
     build_parser = subparsers.add_parser("build", help="Run the MVP build flow.")
     build_parser.add_argument("--model", required=True, help="Path to the source ONNX model.")
