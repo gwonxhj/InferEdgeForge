@@ -66,6 +66,8 @@ python3 -m pytest -q
 - **InferEdgeLab:** Runtime result와 Forge provenance를 분석해 report/API/job/deployment decision을 생성합니다.
 - **InferEdgeAIGuard:** Forge provenance와 Runtime provenance가 서로 맞는지 rule/evidence 기반으로 진단합니다.
 
+Forge는 `inferedgelab` CLI를 함께 배포하지 않습니다. `evaluate-detection`, `enrich-pair`, `compare` 같은 분석 명령은 InferEdgeLab 레포/패키지의 책임이며, Forge는 Lab이 설치된 환경에서 사용할 downstream handoff command를 preview하거나 실행하는 경계까지만 담당합니다.
+
 ## 현재 범위와 future work
 
 현재는 build/provenance/handoff contract를 안정화한 단계입니다. TensorRT/RKNN artifact build와 provenance 기록을 중심으로 하며, production SaaS worker 자동 실행은 포함하지 않습니다.

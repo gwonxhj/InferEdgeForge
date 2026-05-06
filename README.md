@@ -185,6 +185,8 @@ InferEdgeForge and InferEdgeLab are paired, but they do different jobs.
 
 This separation matters. Build generation and deployment evaluation are related, but they should not be collapsed into one opaque tool.
 
+Forge intentionally does not ship the `inferedgelab` CLI. Commands such as `evaluate-detection`, `enrich-pair`, and `compare` belong to the InferEdgeLab repository/package; Forge only previews or invokes those downstream handoff commands when Lab is available in the environment.
+
 ## Representative Workflow
 
 The current workflow is intentionally build-centered and traceable.
