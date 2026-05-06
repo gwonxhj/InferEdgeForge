@@ -26,6 +26,7 @@ from inferedgeforge.build import (
 )
 from inferedgeforge.cli import main
 from inferedgeforge.metadata import read_build_metadata
+from inferedgeforge.manifest_validation import validate_manifest
 from inferedgeforge.presets import load_preset_by_id
 from inferedgeforge.schemas import (
     ArtifactRecord,
@@ -141,6 +142,7 @@ def test_run_build_creates_metadata_and_artifact(tmp_path, monkeypatch) -> None:
     assert persisted_metadata.preset_snapshot.to_dict() == metadata.preset_snapshot.to_dict()
 
     manifest = json.loads((build_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == "inferedgeforge-manifest-v1"
     assert manifest["build"]["preset_name"] == "rknn/rk3588_fp16"
     assert manifest["build"]["backend"] == "rknn"
     assert manifest["build"]["target"] == "rk3588"
@@ -168,11 +170,61 @@ def test_build_manifest_from_metadata_uses_existing_metadata_values(tmp_path, mo
 
     manifest = build_manifest_from_metadata(metadata)
 
+    assert manifest["schema_version"] == "inferedgeforge-manifest-v1"
     assert manifest["build"]["preset_name"] == metadata.build.preset_name
     assert manifest["source_model"]["path"] == metadata.source_model.path
     assert manifest["source_model"]["sha256"] == metadata.source_model.sha256
     assert manifest["artifact"]["path"] == metadata.artifacts[0].path
     assert manifest["artifact"]["sha256"] == metadata.artifacts[0].sha256
+
+
+def test_validate_manifest_accepts_generated_manifest(tmp_path, monkeypatch) -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    model_path = tmp_path / "classifier.onnx"
+    output_dir = tmp_path / "builds"
+    model_path.write_text("dummy onnx content", encoding="utf-8")
+    _mock_tensorrt_builder_success(monkeypatch)
+
+    run_build(
+        model_path=model_path,
+        preset_id="tensorrt/jetson_fp16",
+        output_dir=output_dir,
+        presets_root=repo_root / "presets",
+    )
+    manifest_path = _expected_build_dir(
+        output_dir,
+        "classifier",
+        "jetson",
+        "tensorrt",
+        "tensorrt/jetson_fp16",
+    ) / "manifest.json"
+
+    result = validate_manifest(manifest=manifest_path)
+
+    assert result.valid
+    assert result.errors == ()
+
+
+def test_validate_manifest_reports_actionable_errors(tmp_path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "build": {"preset_name": "tensorrt/jetson_fp16", "backend": "tensorrt"},
+                "source_model": {"path": "models/yolov8n.onnx"},
+                "artifact": {"format": "engine"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = validate_manifest(manifest=manifest_path)
+
+    assert not result.valid
+    error_paths = {issue.path for issue in result.errors}
+    assert "runtime" in error_paths
+    assert "artifact.path" in error_paths
+    assert "build.target" in error_paths
 
 
 def test_resolve_rebuild_inputs_uses_manifest_values(tmp_path, monkeypatch) -> None:

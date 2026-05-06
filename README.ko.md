@@ -39,6 +39,7 @@ ONNX model
 - ONNX 모델을 TensorRT engine, RKNN artifact 등 edge deployment artifact로 변환합니다.
 - build 과정의 source model hash, artifact hash, backend, target, precision, shape, preset/build id를 기록합니다.
 - `metadata.json`, `manifest.json`, `run_summary.json`, `worker_runtime_summary`를 통해 Runtime/Lab/AIGuard가 추적 가능한 provenance contract를 제공합니다.
+- `validate-manifest`로 build 실행 없이 Runtime/Lab handoff에 필요한 manifest 필드를 sanity check할 수 있습니다.
 - Forge는 deployment decision owner가 아닙니다. 최종 decision은 InferEdgeLab이 소유합니다.
 
 ## 주요 산출물
