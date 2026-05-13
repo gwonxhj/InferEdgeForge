@@ -38,6 +38,9 @@ ONNX model
 -> InferEdgeLab compare / API / job workflow / deployment_decision
 -> optional InferEdgeAIGuard provenance diagnosis
 -> deploy / review / blocked decision
+
+Supporting sidecar:
+InferEdgeEnv -> local-first run evidence registry / comparability checker
 ```
 
 In that pipeline, Forge is responsible for converting an ONNX model into edge deployment artifacts such as TensorRT engines or RKNN artifacts, while preserving the provenance needed by Runtime, Lab, and AIGuard.
@@ -55,6 +58,8 @@ Planned later:
 - broader production deployment controls around artifact promotion
 
 Forge does not decide whether a model should be deployed. InferEdgeLab owns the final `deployment_decision`; Forge supplies the reproducible build evidence that makes that decision reviewable.
+
+Portfolio boundary: InferEdgeLab is the validation / decision layer. InferEdgeEnv is the run evidence registry / comparability layer; it records whether benchmark evidence can be trusted and compared without owning Forge build provenance or Lab deployment decisions.
 
 ## Problem Statement
 

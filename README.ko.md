@@ -32,6 +32,9 @@ ONNX model
 -> InferEdge-Runtime C++ execution/result export
 -> InferEdgeLab compare/API/job/deployment_decision
 -> optional InferEdgeAIGuard provenance diagnosis
+
+Supporting sidecar:
+InferEdgeEnv -> local-first run evidence registry / comparability checker
 ```
 
 ## 이 레포의 역할
@@ -66,6 +69,9 @@ python3 -m pytest -q
 - **InferEdge-Runtime:** Forge가 만든 artifact와 manifest를 받아 실행/profiling result JSON을 생성합니다.
 - **InferEdgeLab:** Runtime result와 Forge provenance를 분석해 report/API/job/deployment decision을 생성합니다.
 - **InferEdgeAIGuard:** Forge provenance와 Runtime provenance가 서로 맞는지 rule/evidence 기반으로 진단합니다.
+- **InferEdgeEnv:** benchmark run evidence를 local artifact와 SQLite registry로 고정하고 비교 가능성을 판정하는 run evidence registry / comparability layer입니다.
+
+포트폴리오 경계: InferEdgeLab은 validation / decision layer이고, InferEdgeEnv는 run evidence registry / comparability layer입니다. Forge는 build provenance를 소유하고, Env는 benchmark evidence가 신뢰 가능하고 비교 가능한 형태인지 관리합니다.
 
 Forge는 `inferedgelab` CLI를 함께 배포하지 않습니다. `evaluate-detection`, `enrich-pair`, `compare` 같은 분석 명령은 InferEdgeLab 레포/패키지의 책임이며, Forge는 Lab이 설치된 환경에서 사용할 downstream handoff command를 preview하거나 실행하는 경계까지만 담당합니다.
 
