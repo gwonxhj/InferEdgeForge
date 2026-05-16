@@ -57,6 +57,12 @@ Planned later:
 - production worker/queue integration
 - broader production deployment controls around artifact promotion
 
+Reliable Edge Agent Runtime extension:
+
+- Forge defines a standalone [`agent_manifest.json` contract](docs/agent_manifest_contract.md) for future multi-agent workload handoff.
+- This contract is intentionally separate from existing `manifest.json` / `metadata.json` so the Core 4 validation pipeline remains backward-compatible.
+- It records agent identity, type, priority, latency budget, fallback policy, runtime artifact mapping, telemetry contract version, and Lab compatibility metadata.
+
 Forge does not decide whether a model should be deployed. InferEdgeLab owns the final `deployment_decision`; Forge supplies the reproducible build evidence that makes that decision reviewable.
 
 Portfolio boundary: InferEdgeLab is the validation / decision layer. InferEdgeEnv is the v0.1.5 v1-complete experiment hygiene / comparability layer; it records whether benchmark evidence can be trusted and compared without owning Forge build provenance or Lab deployment decisions.
@@ -118,6 +124,7 @@ InferEdgeForge currently provides these implemented capabilities:
 - compare-ready candidate discovery
 - compare command preview from persisted structured result paths
 - manifest sanity validation before Runtime/Lab handoff
+- standalone `agent_manifest.json` contract creation and validation for the Reliable Edge Agent Runtime extension
 - downstream accuracy evidence attachment support via InferEdgeLab enrich flows
 - `rebuild-from-manifest` support, with Jetson rebuild validation recorded as functionally reproducible
 
