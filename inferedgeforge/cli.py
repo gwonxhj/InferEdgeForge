@@ -8,6 +8,11 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+from inferedgeforge.agent_manifest import (
+    create_agent_manifest_from_manifest,
+    format_agent_manifest_validation,
+    validate_agent_manifest,
+)
 from inferedgeforge.build import (
     collect_metadata_files,
     create_build_plan,
@@ -153,6 +158,50 @@ def _cmd_rebuild_from_manifest(args: argparse.Namespace) -> int:
 def _cmd_validate_manifest(args: argparse.Namespace) -> int:
     result = validate_manifest(manifest=args.manifest, build_dir=args.build_dir)
     print(format_manifest_validation(result))
+    return 0 if result.valid else 1
+
+
+def _cmd_create_agent_manifest(args: argparse.Namespace) -> int:
+    guard_policy = None
+    if args.guard_policy is not None:
+        guard_policy_payload = json.loads(args.guard_policy)
+        if not isinstance(guard_policy_payload, dict):
+            raise ValueError("--guard-policy must decode to a JSON object")
+        guard_policy = guard_policy_payload
+
+    payload = create_agent_manifest_from_manifest(
+        manifest_path=args.manifest,
+        agent_id=args.agent_id,
+        agent_type=args.agent_type,
+        priority=args.priority,
+        latency_budget_ms=args.latency_budget_ms,
+        deadline_ms=args.deadline_ms,
+        input_type=args.input_type,
+        output_type=args.output_type,
+        fallback_mode=args.fallback_mode,
+        required_backend=args.required_backend,
+        device_target=args.device_target,
+        precision=args.precision,
+        runtime_artifact_path=args.runtime_artifact_path,
+        tool_schema_path=args.tool_schema_path,
+        telemetry_contract_version=args.telemetry_contract_version,
+        guard_policy=guard_policy,
+    )
+
+    if args.output is None:
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    output_path = Path(args.output)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    print(f"Agent manifest written: {output_path}")
+    return 0
+
+
+def _cmd_validate_agent_manifest(args: argparse.Namespace) -> int:
+    result = validate_agent_manifest(args.manifest)
+    print(format_agent_manifest_validation(result))
     return 0 if result.valid else 1
 
 
@@ -313,6 +362,81 @@ def build_parser() -> argparse.ArgumentParser:
     validate_source.add_argument("--manifest", help="Path to manifest.json.")
     validate_source.add_argument("--build-dir", help="Build directory containing manifest.json.")
     validate_parser.set_defaults(func=_cmd_validate_manifest)
+
+    create_agent_parser = subparsers.add_parser(
+        "create-agent-manifest",
+        help="Create a standalone agent_manifest.json from an existing Forge manifest.",
+    )
+    create_agent_parser.add_argument("--manifest", required=True, help="Path to source manifest.json.")
+    create_agent_parser.add_argument("--agent-id", required=True, help="Stable agent workload identifier.")
+    create_agent_parser.add_argument(
+        "--agent-type",
+        required=True,
+        choices=["vision", "voice", "safety", "utility"],
+        help="Agent workload type.",
+    )
+    create_agent_parser.add_argument("--priority", required=True, type=int, help="Scheduler priority, 0-100.")
+    create_agent_parser.add_argument(
+        "--latency-budget-ms",
+        required=True,
+        type=int,
+        help="Expected task latency budget in milliseconds.",
+    )
+    create_agent_parser.add_argument(
+        "--deadline-ms",
+        required=True,
+        type=int,
+        help="End-to-end task deadline in milliseconds.",
+    )
+    create_agent_parser.add_argument("--input-type", required=True, help="Input type, for example frame or text.")
+    create_agent_parser.add_argument("--output-type", required=True, help="Output type, for example detections.")
+    create_agent_parser.add_argument(
+        "--fallback-mode",
+        required=True,
+        choices=["none", "drop_stale", "degrade_backend", "skip_low_priority", "notify_only"],
+        help="Initial fallback policy mode.",
+    )
+    create_agent_parser.add_argument(
+        "--required-backend",
+        help="Override backend inferred from manifest runtime.engine/build.backend.",
+    )
+    create_agent_parser.add_argument(
+        "--device-target",
+        help="Override device inferred from manifest runtime.device/build.target.",
+    )
+    create_agent_parser.add_argument(
+        "--precision",
+        help="Override precision inferred from manifest runtime.precision/artifact.precision.",
+    )
+    create_agent_parser.add_argument(
+        "--runtime-artifact-path",
+        help="Override runtime artifact path inferred from manifest runtime/artifact fields.",
+    )
+    create_agent_parser.add_argument(
+        "--tool-schema-path",
+        help="Optional tool schema path for utility/command agents.",
+    )
+    create_agent_parser.add_argument(
+        "--telemetry-contract-version",
+        default="inferedge-agent-telemetry-v1",
+        help="Telemetry contract version. Defaults to %(default)s.",
+    )
+    create_agent_parser.add_argument(
+        "--guard-policy",
+        help="Optional guard policy JSON object string.",
+    )
+    create_agent_parser.add_argument(
+        "--output",
+        help="Optional output path. Prints JSON when omitted.",
+    )
+    create_agent_parser.set_defaults(func=_cmd_create_agent_manifest)
+
+    validate_agent_parser = subparsers.add_parser(
+        "validate-agent-manifest",
+        help="Validate standalone agent_manifest.json handoff sanity.",
+    )
+    validate_agent_parser.add_argument("--manifest", required=True, help="Path to agent_manifest.json.")
+    validate_agent_parser.set_defaults(func=_cmd_validate_agent_manifest)
 
     build_parser = subparsers.add_parser("build", help="Run the MVP build flow.")
     build_parser.add_argument("--model", required=True, help="Path to the source ONNX model.")

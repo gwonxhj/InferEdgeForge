@@ -43,12 +43,14 @@ InferEdgeEnv -> v0.1.5 v1-complete local-first run evidence registry / comparabi
 - build 과정의 source model hash, artifact hash, backend, target, precision, shape, preset/build id를 기록합니다.
 - `metadata.json`, `manifest.json`, `run_summary.json`, `worker_runtime_summary`를 통해 Runtime/Lab/AIGuard가 추적 가능한 provenance contract를 제공합니다.
 - `validate-manifest`로 build 실행 없이 Runtime/Lab handoff에 필요한 manifest 필드를 sanity check할 수 있습니다.
+- Reliable Edge Agent Runtime 확장을 위해 독립 `agent_manifest.json` contract를 생성/검증할 수 있습니다.
 - Forge는 deployment decision owner가 아닙니다. 최종 decision은 InferEdgeLab이 소유합니다.
 
 ## 주요 산출물
 
 - `metadata.json`: backend, target, precision, shape, artifact path, Lab/Runtime handoff context
 - `manifest.json`: build id, timestamp, source model hash, artifact hash, preset snapshot, tool version
+- `agent_manifest.json`: agent id/type, priority, latency budget, fallback policy, runtime artifact mapping, Lab compatibility metadata
 - `run_summary.json`: downstream benchmark/handoff trace
 - `worker_runtime_summary`: Lab worker request와 Runtime invocation에 넘기기 쉬운 summary contract
 
@@ -74,6 +76,12 @@ python3 -m pytest -q
 포트폴리오 경계: InferEdgeLab은 validation / decision layer이고, InferEdgeEnv는 `v0.1.5` v1-complete experiment hygiene / comparability layer입니다. Forge는 build provenance를 소유하고, Env는 benchmark evidence가 신뢰 가능하고 비교 가능한 형태인지 관리합니다.
 
 Forge는 `inferedgelab` CLI를 함께 배포하지 않습니다. `evaluate-detection`, `enrich-pair`, `compare` 같은 분석 명령은 InferEdgeLab 레포/패키지의 책임이며, Forge는 Lab이 설치된 환경에서 사용할 downstream handoff command를 preview하거나 실행하는 경계까지만 담당합니다.
+
+## Reliable Edge Agent Runtime 확장
+
+- Forge는 향후 multi-agent workload handoff를 위해 독립 [`agent_manifest.json` contract](docs/agent_manifest_contract.md)를 정의합니다.
+- 이 contract는 기존 `manifest.json` / `metadata.json`과 분리되어 Core 4 validation pipeline의 backward compatibility를 보존합니다.
+- agent identity, type, priority, latency budget, fallback policy, runtime artifact mapping, telemetry contract version, Lab compatibility metadata를 기록합니다.
 
 ## 현재 범위와 future work
 
