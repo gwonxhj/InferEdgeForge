@@ -13,6 +13,16 @@ Build provenance and artifact handoff layer
 - Runtime/Lab이 사용할 handoff record를 생성합니다.
 - deployment review에 필요한 build evidence를 제공하며, 최종 decision은 InferEdgeLab이 소유합니다.
 
+## 역할 경계 한눈에 보기
+
+| 영역 | Forge가 담당하는 일 | Forge가 담당하지 않는 일 |
+|---|---|---|
+| Build/provenance | deployment artifact, `metadata.json`, `manifest.json`, source/artifact hash, preset snapshot, handoff record를 생성합니다. | inference 실행, latency benchmark, candidate 비교, deployment decision을 수행하지 않습니다. |
+| Runtime/Lab handoff | Runtime/Lab이 사용할 artifact identity, shape, backend, target, precision, worker/runtime summary context를 제공합니다. | Runtime `result.json`, Lab compare output, Lab `deployment_decision` contract를 임의 변경하지 않습니다. |
+| Manifest validation | build 실행 없이 handoff 필드와 reproducibility metadata를 sanity check합니다. | artifact를 production promotion하거나 worker/queue를 운영하거나 release readiness를 결정하지 않습니다. |
+| Agent manifest extension | 기존 `metadata.json` / `manifest.json`을 대체하지 않는 별도 `agent_manifest.json` contract를 생성합니다. | Orchestrator scheduler, runtime control plane, AIGuard diagnosis owner가 되지 않습니다. |
+| Portfolio scope | downstream validation이 evidence를 설명할 수 있도록 artifact build traceability를 보존합니다. | production SaaS, auth/billing/upload service, cloud dashboard, public artifact registry가 되지 않습니다. |
+
 ## InferEdgeForge의 차별점
 
 InferEdgeForge는 단순한 model conversion script가 아닙니다.
@@ -93,7 +103,7 @@ Forge는 이 수치를 직접 판단하지 않고, build provenance와 artifact 
 
 Future work:
 
-- Lab job에서 Forge build를 자동 실행하는 production worker
-- queue/DB 기반 artifact promotion workflow
-- 더 넓은 target/backend preset 확장
-- production deployment control
+- future Lab worker-triggered build execution
+- metadata/manifest contract 안정화 이후 worker/queue handoff hardening
+- manifest validation 기반 artifact promotion sanity check 강화
+- 필요가 명확해진 뒤의 target/backend preset 확장

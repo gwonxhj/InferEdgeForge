@@ -15,6 +15,16 @@ Language: English | [한국어](README.ko.md)
 - Produces Runtime/Lab handoff records for downstream validation
 - Supplies evidence for deployment review; InferEdgeLab owns the final decision
 
+## Role Boundary At A Glance
+
+| Area | Forge owns | Forge does not own |
+|---|---|---|
+| Build/provenance | Generates deployment artifacts, `metadata.json`, `manifest.json`, source/artifact hashes, preset snapshots, and handoff records | Execute inference, benchmark latency, compare candidates, or make deployment decisions |
+| Runtime/Lab handoff | Provides Runtime/Lab-compatible artifact identity, shape, backend, target, precision, and worker/runtime summary context | Mutate Runtime `result.json`, Lab compare output, or Lab `deployment_decision` contracts |
+| Manifest validation | Runs build-free sanity checks for required handoff fields and reproducibility metadata | Promote artifacts to production, run workers, manage queues, or decide release readiness |
+| Agent manifest extension | Creates a separate `agent_manifest.json` contract without replacing existing `metadata.json` / `manifest.json` | Become an Orchestrator scheduler, runtime control plane, or AIGuard diagnosis owner |
+| Portfolio scope | Keeps artifact builds traceable so downstream validation can explain evidence | Become production SaaS, auth/billing/upload service, cloud dashboard, or public artifact registry |
+
 ## What Makes InferEdgeForge Different?
 
 InferEdgeForge is not just a model conversion script.
@@ -53,9 +63,9 @@ Implemented today:
 
 Planned later:
 
-- automatic SaaS worker execution from Lab jobs
-- production worker/queue integration
-- broader production deployment controls around artifact promotion
+- future Lab worker-triggered build execution
+- worker/queue handoff hardening after metadata/manifest contracts stay stable
+- stricter artifact promotion sanity checks around manifest validation
 
 Reliable Edge Agent Runtime extension:
 
