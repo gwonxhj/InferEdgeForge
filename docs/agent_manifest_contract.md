@@ -1,6 +1,6 @@
 # Agent Manifest Contract
 
-Language: English
+Language: English | [한국어](agent_manifest_contract.ko.md)
 
 `agent_manifest.json` is the first Forge-side contract for the Reliable Edge
 Agent Runtime extension. It is intentionally separate from the existing
@@ -156,4 +156,3 @@ python -m inferedgeforge.cli validate-agent-manifest \
 - Lab remains the final deployment decision owner.
 - Orchestrator records scheduling/policy evidence.
 - AIGuard provides deterministic diagnosis evidence.
-
