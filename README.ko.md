@@ -92,6 +92,7 @@ Forge는 `inferedgelab` CLI를 함께 배포하지 않습니다. `evaluate-detec
 - Forge는 향후 multi-agent workload handoff를 위해 독립 [`agent_manifest.json` contract](docs/agent_manifest_contract.ko.md)를 정의합니다. 대표/canonical 문서는 [English contract](docs/agent_manifest_contract.md)입니다.
 - 이 contract는 기존 `manifest.json` / `metadata.json`과 분리되어 Core 4 validation pipeline의 backward compatibility를 보존합니다.
 - agent identity, type, priority, latency budget, fallback policy, runtime artifact mapping, telemetry contract version, Lab compatibility metadata를 기록합니다.
+- downstream reviewer sample인 `agent_scheduler_delay_sample.json`, `remote_fallback_recovery_sample.json`은 Forge artifact, manifest input, deployment policy signal이 아닙니다. 이 sample은 Runtime/Orchestrator execution context가 생긴 뒤 Orchestrator/AIGuard evidence를 설명하는 경로입니다.
 
 ## 현재 범위와 future work
 
