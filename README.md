@@ -72,6 +72,7 @@ Reliable Edge Agent Runtime extension:
 - Forge defines a standalone [`agent_manifest.json` contract](docs/agent_manifest_contract.md) ([한국어: agent_manifest.json 계약 quick guide](docs/agent_manifest_contract.ko.md)) for future multi-agent workload handoff.
 - This contract is intentionally separate from existing `manifest.json` / `metadata.json` so the Core 4 validation pipeline remains backward-compatible.
 - It records agent identity, type, priority, latency budget, fallback policy, runtime artifact mapping, telemetry contract version, and Lab compatibility metadata.
+- Downstream reviewer samples such as `agent_scheduler_delay_sample.json` and `remote_fallback_recovery_sample.json` are not Forge artifacts, manifest inputs, or deployment policy signals; they can explain later Orchestrator/AIGuard evidence only after Runtime/Orchestrator execution context exists.
 
 Forge does not decide whether a model should be deployed. InferEdgeLab owns the final `deployment_decision`; Forge supplies the reproducible build evidence that makes that decision reviewable.
 

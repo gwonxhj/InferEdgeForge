@@ -75,6 +75,11 @@ def test_agent_manifest_contract_has_korean_quick_guide_and_boundaries():
         "Lab-owned deployment decision",
         "production control plane",
         "AI OS",
+        "agent_scheduler_delay_sample.json",
+        "remote_fallback_recovery_sample.json",
+        "scheduler_delay_pattern",
+        "remote_execution_recovered_by_fallback",
+        "`agent_manifest.json`, `metadata.json`, `manifest.json` input",
         "Jetson 필요 여부",
     ]:
         assert required in contract_ko

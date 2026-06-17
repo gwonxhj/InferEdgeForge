@@ -54,6 +54,13 @@ Forge manifest.json
 AIGuard는 deterministic diagnosis evidence를 제공하고, 최종 판단은 Lab-owned
 deployment decision으로 유지됩니다.
 
+downstream reviewer sample인 `agent_scheduler_delay_sample.json`,
+`remote_fallback_recovery_sample.json`은 Forge가 생성하지 않으며
+`agent_manifest.json`, `metadata.json`, `manifest.json` input으로 취급하지
+않습니다. 이 sample은 Runtime/Orchestrator execution context가 생긴 뒤
+AIGuard `scheduler_delay_pattern`,
+`remote_execution_recovered_by_fallback` evidence를 설명하는 경로입니다.
+
 이 문서는 Runtime Operation / Agent Runtime 확장을 production control plane이나
 AI OS로 표현하지 않기 위한 계약 경계 문서입니다.
 
